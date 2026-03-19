@@ -1,34 +1,51 @@
-// 3. 自動抓取仁安醫院並計算時間差
-    async function fetchUnion() {
-        const url = "https://www.union.org/tc/"; // 仁安主頁
-        try {
-            const res = await fetch(PROXY + encodeURIComponent(url));
-            const html = await res.text();
-            
-            // 使用正規表達式提取「醫生現時處理」的時間 (格式如 00:27)
-            const timeMatch = html.match(/(\d{2}:\d{2})/);
-            
-            if (timeMatch) {
-                const processingTimeStr = timeMatch[1];
-                const now = new Date();
-                
-                // 解析網頁上的時間
-                const [pHours, pMinutes] = processingTimeStr.split(':').map(Number);
-                const pDate = new Date();
-                pDate.setHours(pHours, pMinutes, 0);
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>全港醫院輪候實時 Dashboard</title>
+    <style>
+        body { font-family: -apple-system, system-ui, sans-serif; background-color: #f4f7f6; margin: 0; padding: 15px; }
+        .container { max-width: 850px; margin: auto; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
+        h1 { text-align: center; color: #2c3e50; font-size: 22px; margin-bottom: 15px; }
+        .status { text-align: center; font-size: 12px; padding: 10px; margin-bottom: 20px; border-radius: 8px; font-weight: bold; }
+        .loading { background: #fff3cd; color: #856404; }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; }
+        th { font-size: 12px; color: #7f8c8d; text-transform: uppercase; }
+        .hosp-name { font-weight: bold; color: #34495e; }
+        .wait-time { font-size: 18px; font-weight: 800; color: #e67e22; }
+        .tag-pub { background: #e8f5e9; color: #2e7d32; padding: 2px 6px; border-radius: 4px; font-size: 10px; }
+        .tag-pri { background: #e3f2fd; color: #1565c0; padding: 2px 6px; border-radius: 4px; font-size: 10px; }
+        .update-time { font-size: 10px; color: #95a5a6; display: block; margin-top: 4px; }
+        .section-title { background: #f8f9fa; font-weight: bold; color: #7f8c8d; }
+    </style>
+</head>
+<body>
 
-                // 計算分鐘差 (處理跨日情況)
-                let diff = Math.floor((now - pDate) / 1000 / 60);
-                if (diff < 0) diff += 1440; // 如果跨午夜，加 24 小時
+<div class="container">
+    <h1>🏥 全港醫院輪候實時 Dashboard</h1>
+    <div id="status-bar" class="status loading">🔄 正在同步醫管局及私院數據...</div>
 
-                // 顯示邏輯：如果差距很小，顯示預計等候時間
-                const waitEstimate = diff + 5; // 額外加 5 分鐘緩衝
-                document.getElementById('w-union').innerText = `約 ${waitEstimate} 分鐘`;
-                document.getElementById('t-union').innerText = `網頁顯示處理至: ${processingTimeStr}`;
-            } else {
-                document.getElementById('w-union').innerText = "約 15-30 分鐘";
-            }
-        } catch (e) { 
-            document.getElementById('w-union').innerText = "需查閱官網"; 
-        }
-    }
+    <table>
+        <thead>
+            <tr>
+                <th>醫院名稱</th>
+                <th>類型</th>
+                <th>預計等候</th>
+            </tr>
+        </thead>
+        <tbody id="list">
+            <tr class="section-title"><td colspan="3">🌟 私家醫院 (智能抓取)</td></tr>
+            <tr>
+                <td><span class="hosp-name">仁安醫院 (大圍)</span><span class="update-time" id="t-union">等待同步...</span></td>
+                <td><span class="tag-pri">私家實時</span></td>
+                <td><span class="wait-time" id="w-union">計算中...</span></td>
+            </tr>
+            <tr>
+                <td><span class="hosp-name">港怡醫院 (黃竹坑)</span><span class="update-time" id="t-gleneagles">等待同步...</span></td>
+                <td><span class="tag-pri">私家實時</span></td>
+                <td><span class="wait-time" id="w-gleneagles">同步中...</span></td>
+            </tr>
