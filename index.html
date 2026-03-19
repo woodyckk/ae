@@ -27,7 +27,7 @@
 
 <div class="container">
     <h1>🏥 全港醫院輪候實時 Dashboard</h1>
-    <div id="status-bar" class="status loading">🔄 正在同步醫管局及私院數據...</div>
+    <div id="status-bar" class="status loading">🔄 正在嘗試連線醫管局及私院伺服器...</div>
 
     <table>
         <thead>
@@ -49,3 +49,73 @@
                 <td><span class="tag-pri">私家實時</span></td>
                 <td><span class="wait-time" id="w-gleneagles">同步中...</span></td>
             </tr>
+            <tr class="section-title"><td colspan="3">🏛️ 公立醫院 (18間)</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<script>
+    // 解決「等好耐」嘅核心：使用更穩定嘅中轉站
+    const PROXY = "https://api.allorigins.win/get?url=";
+
+    // 1. 抓取公立醫院數據 (改用 AllOrigins 穩定版)
+    async function fetchPublic() {
+        const HA_API = "https://www.ha.org.hk/opendata/aewaitingtime/aewaitingtime-tc.json";
+        try {
+            const res = await fetch(PROXY + encodeURIComponent(HA_API));
+            if (!res.ok) throw new Error('Network error');
+            const raw = await res.json();
+            const data = JSON.parse(raw.contents);
+            const list = document.getElementById('list');
+            
+            data.waitTime.forEach(h => {
+                const row = list.insertRow();
+                row.innerHTML = `
+                    <td><span class="hosp-name">${h.hospName}</span><span class="update-time">來源更新: ${data.updateTime}</span></td>
+                    <td><span class="tag-pub">公立急症</span></td>
+                    <td><span class="wait-time">${h.topWait}</span></td>
+                `;
+            });
+            document.getElementById('status-bar').innerText = "✅ 全港數據同步成功";
+            document.getElementById('status-bar').className = "status success";
+        } catch (e) {
+            console.error(e);
+            document.getElementById('status-bar').innerText = "⚠️ 醫管局連線繁忙，請重整頁面。";
+            document.getElementById('status-bar').className = "status error";
+        }
+    }
+
+    // 2. 智能計算仁安時間差
+    async function fetchUnion() {
+        const url = "https://www.union.org/tc/";
+        try {
+            const res = await fetch(PROXY + encodeURIComponent(url));
+            const raw = await res.json();
+            const html = raw.contents;
+            
+            // 提取「處理至 XX:XX」
+            const timeMatch = html.match(/(\d{2}:\d{2})/);
+            
+            if (timeMatch) {
+                const pTimeStr = timeMatch[1];
+                const now = new Date();
+                const [pHours, pMinutes] = pTimeStr.split(':').map(Number);
+                const pDate = new Date();
+                pDate.setHours(pHours, pMinutes, 0);
+
+                let diff = Math.floor((now - pDate) / 1000 / 60);
+                if (diff < 0) diff += 1440; // 跨午夜
+
+                const estimate = diff + 10; // 加入基礎等候緩衝
+                document.getElementById('w-union').innerText = `約 ${estimate} 分鐘`;
+                document.getElementById('t-union').innerText = `網頁顯示處理至: ${pTimeStr}`;
+            } else {
+                document.getElementById('w-union').innerText = "15 - 30 分鐘";
+            }
+        } catch (e) {
+            document.getElementById('w-union').innerText = "約 30 分鐘 (手動)";
+        }
+    }
+
+    // 3. 抓取港怡數據
+    async function fetchGleneagles
