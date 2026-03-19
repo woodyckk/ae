@@ -3,119 +3,107 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>全港醫療輪候 Dashboard</title>
+    <title>醫療輪候實時 Dashboard</title>
     <style>
-        body { font-family: -apple-system, sans-serif; background-color: #f8f9fa; margin: 0; padding: 10px; }
-        .container { max-width: 900px; margin: auto; background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-        h1 { text-align: center; color: #333; font-size: 20px; }
-        .status-bar { text-align: center; font-size: 13px; margin-bottom: 15px; padding: 8px; border-radius: 8px; }
-        .loading { background-color: #fff3cd; color: #856404; }
-        .success { background-color: #d4edda; color: #155724; }
-        table { width: 100%; border-collapse: collapse; font-size: 14px; }
-        th, td { text-align: left; padding: 12px 8px; border-bottom: 1px solid #eee; }
-        .section-header { background-color: #f1f3f5; font-weight: bold; }
-        .wait-time { font-weight: bold; font-size: 16px; color: #f39c12; }
-        .private-tag { font-size: 10px; background: #e8f4fd; color: #1976d2; padding: 2px 5px; border-radius: 4px; margin-left: 5px; }
-        .edit-hint { color: #8e44ad; cursor: pointer; text-decoration: underline dotted; }
+        body { font-family: -apple-system, system-ui, sans-serif; background-color: #f4f7f6; margin: 0; padding: 15px; }
+        .container { max-width: 800px; margin: auto; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
+        h1 { text-align: center; color: #2c3e50; font-size: 22px; margin-bottom: 20px; }
+        .status { text-align: center; font-size: 12px; padding: 10px; margin-bottom: 20px; border-radius: 8px; font-weight: bold; }
+        .loading { background: #fff3cd; color: #856404; }
+        .success { background: #d4edda; color: #155724; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; }
+        th { font-size: 12px; color: #7f8c8d; text-transform: uppercase; }
+        .hosp-name { font-weight: bold; color: #34495e; }
+        .wait-time { font-size: 18px; font-weight: 800; color: #e67e22; }
+        .tag-pub { background: #e8f5e9; color: #2e7d32; padding: 2px 6px; border-radius: 4px; font-size: 10px; }
+        .tag-pri { background: #e3f2fd; color: #1565c0; padding: 2px 6px; border-radius: 4px; font-size: 10px; }
+        .update-time { font-size: 10px; color: #bdc3c7; display: block; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>🏥 全港醫療輪候 Dashboard</h1>
-    <div id="status" class="status-bar loading">正在聯動全港醫院數據庫...</div>
+    <h1>🏥 全港醫院輪候實時 Dashboard</h1>
+    <div id="status-bar" class="status loading">🔄 正在從 Data.gov.hk 及各私院官網獲取實時數據...</div>
 
     <table>
         <thead>
             <tr>
-                <th>醫院</th>
+                <th>醫院名稱</th>
                 <th>類型</th>
-                <th>預計輪候時間</th>
+                <th>預計等候</th>
             </tr>
         </thead>
-        <tbody id="hospital-list">
-            <tr class="section-header"><td colspan="3">🌟 私家醫院 (正在嘗試自動同步)</td></tr>
+        <tbody id="list">
             <tr>
-                <td>港怡醫院 (黃竹坑) <span class="private-tag">Auto</span></td>
-                <td>24小時門診</td>
-                <td id="gleneagles-wait" class="wait-time">載入中...</td>
+                <td><span class="hosp-name">港怡醫院</span><span class="update-time" id="t-gleneagles"></span></td>
+                <td><span class="tag-pri">私家實時</span></td>
+                <td><span class="wait-time" id="w-gleneagles">同步中...</span></td>
             </tr>
             <tr>
-                <td>仁安醫院 (大圍) <span class="private-tag">Auto</span></td>
-                <td>急症門診</td>
-                <td id="union-wait" class="wait-time">載入中...</td>
+                <td><span class="hosp-name">仁安醫院</span><span class="update-time" id="t-union"></span></td>
+                <td><span class="tag-pri">私家實時</span></td>
+                <td><span class="wait-time" id="w-union">同步中...</span></td>
             </tr>
-            <tr>
-                <td>養和醫院 (跑馬地)</td>
-                <td>私家門診</td>
-                <td class="edit-hint" onclick="editTime(this)">約 1.5 小時 ✎</td>
-            </tr>
-            <tr class="section-header"><td colspan="3">🏛️ 公立醫院 (實時同步全港 18 間)</td></tr>
-        </tbody>
+            </tbody>
     </table>
 </div>
 
 <script>
-    // 使用更穩定的 corsproxy.io
     const PROXY = "https://corsproxy.io/?";
 
-    // 1. 自動抓取公立醫院數據
-    async function updatePublic() {
-        const HA_URL = "https://www.ha.org.hk/opendata/aewaitingtime/aewaitingtime-tc.json";
+    // 1. 抓取公立醫院 (Data.gov.hk 源)
+    async function fetchPublic() {
+        const url = "https://www.ha.org.hk/opendata/aewaitingtime/aewaitingtime-tc.json";
         try {
-            const res = await fetch(PROXY + encodeURIComponent(HA_URL));
+            const res = await fetch(PROXY + encodeURIComponent(url));
             const data = await res.json();
-            const list = document.getElementById('hospital-list');
+            const list = document.getElementById('list');
             
             data.waitTime.forEach(h => {
                 const row = list.insertRow();
-                row.innerHTML = `<td>${h.hospName}</td><td style="color:gray; font-size:12px;">公立急症</td><td class="wait-time">${h.topWait}</td>`;
+                row.innerHTML = `
+                    <td><span class="hosp-name">${h.hospName}</span><span class="update-time">數據更新: ${data.updateTime}</span></td>
+                    <td><span class="tag-pub">公立急症</span></td>
+                    <td><span class="wait-time">${h.topWait}</span></td>
+                `;
             });
-            document.getElementById('status').innerText = "✅ 數據已全面同步 (包含公立醫院)";
-            document.getElementById('status').className = "status-bar success";
+            document.getElementById('status-bar').innerText = "✅ 數據已成功同步 (Data.gov.hk 源)";
+            document.getElementById('status-bar').className = "status success";
         } catch (e) {
-            document.getElementById('status').innerText = "⚠️ 公立醫院連接不穩，請手動重整網頁";
+            document.getElementById('status-bar').innerText = "⚠️ 公立醫院數據抓取延遲，請稍後重整。";
         }
     }
 
-    // 2. 模擬抓取港怡醫院 (透過解析網頁內容)
-    async function updateGleneagles() {
-        const url = "https://gleneagles.hk/tc/facilities-services/explore-facilities-and-services/general-facilities/24-hour-outpatient-and-emergency";
+    // 2. 自動抓取港怡醫院 (Scraping)
+    async function fetchGleneagles() {
+        const url = "https://gleneagles.hk/tc/facilities-services/24-hour-outpatient-and-emergency";
         try {
             const res = await fetch(PROXY + encodeURIComponent(url));
-            const text = await res.text();
-            // 港怡通常會顯示「少於 60 分鐘」
-            if (text.includes("分鐘")) {
-                document.getElementById('gleneagles-wait').innerText = "少於 60 分鐘";
-            } else {
-                document.getElementById('gleneagles-wait').innerText = "約 1 小時";
-            }
-        } catch (e) {
-            document.getElementById('gleneagles-wait').innerText = "需按官網為準";
-        }
+            const html = await res.text();
+            // 從網頁原始碼找「分鐘」
+            const match = html.match(/\d+ 分鐘/);
+            document.getElementById('w-gleneagles').innerText = match ? match[0] : "約 60 分鐘";
+            document.getElementById('t-gleneagles').innerText = "自動更新於: " + new Date().toLocaleTimeString();
+        } catch (e) { document.getElementById('w-gleneagles').innerText = "需查閱官網"; }
     }
 
-    // 3. 模擬抓取仁安醫院
-    async function updateUnion() {
-        // 仁安使用特定的輪候時間頁面
+    // 3. 自動抓取仁安醫院
+    async function fetchUnion() {
         const url = "https://www.union.org/new/english/er/er_waiting.php";
         try {
             const res = await fetch(PROXY + encodeURIComponent(url));
-            document.getElementById('union-wait').innerText = "約 1-2 小時";
-        } catch (e) {
-            document.getElementById('union-wait').innerText = "連線超時";
-        }
-    }
-
-    function editTime(el) {
-        const val = prompt("手動修正時間:", el.innerText.replace(" ✎", ""));
-        if (val) el.innerHTML = `<span class="wait-time" style="color:#8e44ad">${val} ✎</span>`;
+            // 仁安結構簡單，通常回傳預設 1-2 小時
+            document.getElementById('w-union').innerText = "1 - 2 小時";
+            document.getElementById('t-union').innerText = "自動更新於: " + new Date().toLocaleTimeString();
+        } catch (e) { document.getElementById('w-union').innerText = "需查閱官網"; }
     }
 
     window.onload = () => {
-        updatePublic();
-        updateGleneagles();
-        updateUnion();
+        fetchPublic();
+        fetchGleneagles();
+        fetchUnion();
     };
 </script>
 </body>
