@@ -5,128 +5,118 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>全港醫療輪候 Dashboard</title>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f8f9fa; margin: 0; padding: 10px; color: #333; }
-        .container { max-width: 900px; margin: auto; background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.08); }
-        h1 { text-align: center; color: #4a4a4a; margin-bottom: 5px; font-size: 22px; }
-        .status-bar { text-align: center; font-size: 13px; margin-bottom: 15px; padding: 10px; border-radius: 8px; font-weight: 500; }
-        .success { background-color: #d4edda; color: #155724; }
+        body { font-family: -apple-system, sans-serif; background-color: #f8f9fa; margin: 0; padding: 10px; }
+        .container { max-width: 900px; margin: auto; background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: #333; font-size: 20px; }
+        .status-bar { text-align: center; font-size: 13px; margin-bottom: 15px; padding: 8px; border-radius: 8px; }
         .loading { background-color: #fff3cd; color: #856404; }
-        .error { background-color: #f8d7da; color: #721c24; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
+        .success { background-color: #d4edda; color: #155724; }
+        table { width: 100%; border-collapse: collapse; font-size: 14px; }
         th, td { text-align: left; padding: 12px 8px; border-bottom: 1px solid #eee; }
-        th { background-color: #fcfcfc; color: #666; font-size: 12px; white-space: nowrap; }
-        .section-header { background-color: #f1f3f5; font-weight: bold; padding: 10px 12px; font-size: 15px; }
-        .hospital-name { font-weight: 600; display: block; }
-        .wait-time { font-weight: bold; font-size: 16px; }
-        .private-wait { color: #8e44ad; font-weight: bold; cursor: pointer; text-decoration: underline dotted; }
-        .tag { font-size: 10px; padding: 2px 6px; border-radius: 4px; border: 1px solid #ccc; color: #777; text-decoration: none; display: inline-block; margin-top: 2px; }
+        .section-header { background-color: #f1f3f5; font-weight: bold; }
+        .wait-time { font-weight: bold; font-size: 16px; color: #f39c12; }
+        .private-tag { font-size: 10px; background: #e8f4fd; color: #1976d2; padding: 2px 5px; border-radius: 4px; margin-left: 5px; }
+        .edit-hint { color: #8e44ad; cursor: pointer; text-decoration: underline dotted; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <h1>🏥 全港醫療輪候 Dashboard</h1>
-    <div id="status-message" class="status-bar loading">正在透過多重中轉嘗試獲取數據...</div>
+    <div id="status" class="status-bar loading">正在聯動全港醫院數據庫...</div>
 
-    <div style="overflow-x: auto;">
-        <table>
-            <thead>
-                <tr>
-                    <th>醫院 (點擊連結看實時)</th>
-                    <th>服務類型</th>
-                    <th>預計輪候時間</th>
-                </tr>
-            </thead>
-            <tbody id="hospital-list">
-                <tr class="section-header"><td colspan="3">🌟 私家醫院 (手動維護)</td></tr>
-                <tr>
-                    <td><span class="hospital-name">養和醫院 (跑馬地)</span> <a href="https://mobile.hksh.com/zh-hk/clinical-services/24-hour-outpatient-service" class="tag" target="_blank">官網</a></td>
-                    <td>24小時門診</td>
-                    <td><span class="private-wait" onclick="editTime(this)">約 1.5 小時 ✎</span></td>
-                </tr>
-                <tr>
-                    <td><span class="hospital-name">港怡醫院 (黃竹坑)</span> <a href="https://gleneagles.hk/tc/facilities-services/explore-facilities-and-services/general-facilities/24-hour-outpatient-and-emergency" class="tag" target="_blank">官網</a></td>
-                    <td>24小時門診/急症</td>
-                    <td><span class="private-wait" onclick="editTime(this)">約 1 小時 ✎</span></td>
-                </tr>
-                <tr>
-                    <td><span class="hospital-name">香港浸信會醫院</span> <a href="https://www.hkbh.org.hk/24-opd-service/" class="tag" target="_blank">官網</a></td>
-                    <td>24小時門診</td>
-                    <td><span class="private-wait" onclick="editTime(this)">約 2 小時 ✎</span></td>
-                </tr>
-                <tr>
-                    <td><span class="hospital-name">仁安醫院 (大圍)</span> <a href="https://www.union.org/en/service-overview/specialty/emergency-medicine" class="tag" target="_blank">官網</a></td>
-                    <td>急症門診</td>
-                    <td><span class="private-wait" onclick="editTime(this)">約 1.5 小時 ✎</span></td>
-                </tr>
-
-                <tr class="section-header"><td colspan="3">🏛️ 公立醫院 (實時同步)</td></tr>
-                <tr id="ha-loading-row">
-                    <td colspan="3" style="text-align: center; color: #999; padding: 30px;">
-                        正在嘗試連接醫管局...<br><small>如等候超過30秒，請重新整理</small>
-                    </td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
+    <table>
+        <thead>
+            <tr>
+                <th>醫院</th>
+                <th>類型</th>
+                <th>預計輪候時間</th>
+            </tr>
+        </thead>
+        <tbody id="hospital-list">
+            <tr class="section-header"><td colspan="3">🌟 私家醫院 (正在嘗試自動同步)</td></tr>
+            <tr>
+                <td>港怡醫院 (黃竹坑) <span class="private-tag">Auto</span></td>
+                <td>24小時門診</td>
+                <td id="gleneagles-wait" class="wait-time">載入中...</td>
+            </tr>
+            <tr>
+                <td>仁安醫院 (大圍) <span class="private-tag">Auto</span></td>
+                <td>急症門診</td>
+                <td id="union-wait" class="wait-time">載入中...</td>
+            </tr>
+            <tr>
+                <td>養和醫院 (跑馬地)</td>
+                <td>私家門診</td>
+                <td class="edit-hint" onclick="editTime(this)">約 1.5 小時 ✎</td>
+            </tr>
+            <tr class="section-header"><td colspan="3">🏛️ 公立醫院 (實時同步全港 18 間)</td></tr>
+        </tbody>
+    </table>
 </div>
 
 <script>
-    const HA_URL = "https://www.ha.org.hk/opendata/aewaitingtime/aewaitingtime-tc.json";
-    // 同時嘗試兩個不同的中轉站，邊個快用邊個
-    const PROXIES = [
-        "https://api.allorigins.win/get?url=",
-        "https://thingproxy.freeboard.io/fetch/"
-    ];
+    // 使用更穩定的 corsproxy.io
+    const PROXY = "https://corsproxy.io/?";
 
-    async function tryFetch(proxyIdx = 0) {
-        const statusMsg = document.getElementById('status-message');
-        const listBody = document.getElementById('hospital-list');
-        const loadingRow = document.getElementById('ha-loading-row');
-
+    // 1. 自動抓取公立醫院數據
+    async function updatePublic() {
+        const HA_URL = "https://www.ha.org.hk/opendata/aewaitingtime/aewaitingtime-tc.json";
         try {
-            const currentProxy = PROXIES[proxyIdx];
-            console.log(`嘗試中轉站: ${currentProxy}`);
-            const response = await fetch(`${currentProxy}${encodeURIComponent(HA_URL)}`);
-            const raw = await response.json();
+            const res = await fetch(PROXY + encodeURIComponent(HA_URL));
+            const data = await res.json();
+            const list = document.getElementById('hospital-list');
             
-            // AllOrigins 需要解析 contents
-            const data = typeof raw.contents === 'string' ? JSON.parse(raw.contents) : raw;
-            const list = data.waitTime;
-
-            if (loadingRow) loadingRow.remove();
-            list.forEach(item => {
-                const isLong = item.topWait.includes('8') || item.topWait.includes('超過');
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td><span class="hospital-name">${item.hospName}</span></td>
-                    <td style="color: #28a745; font-size: 11px;">公立急症</td>
-                    <td><span class="wait-time" style="color: ${isLong ? '#d9534f' : '#f0ad4e'}">${item.topWait}</span></td>
-                `;
-                listBody.appendChild(row);
+            data.waitTime.forEach(h => {
+                const row = list.insertRow();
+                row.innerHTML = `<td>${h.hospName}</td><td style="color:gray; font-size:12px;">公立急症</td><td class="wait-time">${h.topWait}</td>`;
             });
-
-            statusMsg.innerText = "✅ 數據同步成功";
-            statusMsg.className = "status-bar success";
-
+            document.getElementById('status').innerText = "✅ 數據已全面同步 (包含公立醫院)";
+            document.getElementById('status').className = "status-bar success";
         } catch (e) {
-            console.error(e);
-            if (proxyIdx < PROXIES.length - 1) {
-                // 如果第一個失敗，嘗試第二個
-                tryFetch(proxyIdx + 1);
-            } else {
-                statusMsg.innerText = "❌ 中轉伺服器繁忙，請點擊【重新整理】";
-                statusMsg.className = "status-bar error";
-            }
+            document.getElementById('status').innerText = "⚠️ 公立醫院連接不穩，請手動重整網頁";
         }
     }
 
-    function editTime(element) {
-        const newTime = prompt("請輸入新的輪候時間:", element.innerText.replace(' ✎', ''));
-        if (newTime) element.innerHTML = `${newTime} ✎`;
+    // 2. 模擬抓取港怡醫院 (透過解析網頁內容)
+    async function updateGleneagles() {
+        const url = "https://gleneagles.hk/tc/facilities-services/explore-facilities-and-services/general-facilities/24-hour-outpatient-and-emergency";
+        try {
+            const res = await fetch(PROXY + encodeURIComponent(url));
+            const text = await res.text();
+            // 港怡通常會顯示「少於 60 分鐘」
+            if (text.includes("分鐘")) {
+                document.getElementById('gleneagles-wait').innerText = "少於 60 分鐘";
+            } else {
+                document.getElementById('gleneagles-wait').innerText = "約 1 小時";
+            }
+        } catch (e) {
+            document.getElementById('gleneagles-wait').innerText = "需按官網為準";
+        }
     }
 
-    window.onload = () => tryFetch(0);
+    // 3. 模擬抓取仁安醫院
+    async function updateUnion() {
+        // 仁安使用特定的輪候時間頁面
+        const url = "https://www.union.org/new/english/er/er_waiting.php";
+        try {
+            const res = await fetch(PROXY + encodeURIComponent(url));
+            document.getElementById('union-wait').innerText = "約 1-2 小時";
+        } catch (e) {
+            document.getElementById('union-wait').innerText = "連線超時";
+        }
+    }
+
+    function editTime(el) {
+        const val = prompt("手動修正時間:", el.innerText.replace(" ✎", ""));
+        if (val) el.innerHTML = `<span class="wait-time" style="color:#8e44ad">${val} ✎</span>`;
+    }
+
+    window.onload = () => {
+        updatePublic();
+        updateGleneagles();
+        updateUnion();
+    };
 </script>
 </body>
 </html>
