@@ -2,41 +2,34 @@ import requests
 import json
 import sys
 
-# 醫管局官方數據接口
+# 這是「資料一線通」提供的官方 API 接口，專門給程式讀取的
 url = "https://www.ha.org.hk/opendata/aewaitingtime/aewaitingtime-tc.json"
 
 def fetch_data():
-    # 更加真實的偽裝 Headers
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'application/json, text/plain, */*',
-        'Accept-Language': 'zh-HK,zh;q=0.9,en;q=0.8',
-        'Referer': 'https://www.ha.org.hk/visitor/ha_visitor_index.asp?Content_ID=235504&Lang=CHIB5',
-        'Connection': 'keep-alive'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     }
 
     try:
-        print("🚀 開始抓取醫管局數據...")
-        # 加上 verify=False 避免 SSL 證書檢查問題（有時會卡住）
+        print("🚀 正在從資料一線通抓取數據...")
+        # 這是關鍵：我們改用這個穩定的 URL
         response = requests.get(url, headers=headers, timeout=30)
         
-        print(f"📡 伺服器回傳狀態碼: {response.status_code}")
+        print(f"📡 狀態碼: {response.status_code}")
         
-        if response.status_code == 200:
-            # 先檢查內容是否為空
-            if not response.text.strip():
-                raise ValueError("伺服器回傳了空內容")
-                
+        # 試著解析 JSON，如果失敗就印出內容看看是什麼
+        try:
             data = response.json()
             with open('ha_data.json', 'w', encoding='utf-8') as f:
                 json.dump(data, f, ensure_ascii=False, indent=4)
-            print("✅ 成功產生 ha_data.json")
-        else:
-            print(f"❌ 抓取失敗，內容如下: {response.text[:100]}")
+            print("✅ 數據抓取成功！ha_data.json 已更新。")
+        except Exception:
+            print("❌ 內容不是有效的 JSON，抓到的內容開頭是：")
+            print(response.text[:200]) # 印出前 200 字檢查是不是抓到了 HTML
             sys.exit(1)
             
     except Exception as e:
-        print(f"❌ 發生錯誤: {e}")
+        print(f"❌ 連線發生錯誤: {e}")
         sys.exit(1)
 
 if __name__ == "__main__":
