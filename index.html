@@ -1,0 +1,112 @@
+!DOCTYPE html
+html lang=zh-Hant
+head
+    meta charset=UTF-8
+    meta name=viewport content=width=device-width, initial-scale=1.0
+    title香港醫療輪候時間 Dashboardtitle
+    style
+        root { 
+            --primary #2c3e50; 
+            --accent #e74c3c; 
+            --private-gold #b8860b;  私家醫院用金色調 
+            --bg #f0f2f5; 
+        }
+        body { font-family Microsoft JhengHei, sans-serif; background var(--bg); margin 0; padding 15px; }
+        .container { max-width 900px; margin auto; }
+        
+        h1 { text-align center; color var(--primary); font-size 1.5rem; margin-bottom 20px; }
+        
+         區塊樣式 
+        .section-title { 
+            font-size 1.1rem; 
+            font-weight bold; 
+            margin 20px 0 10px 5px; 
+            display flex; 
+            align-items center; 
+        }
+        .section-titlebefore { content ; width 4px; height 18px; background var(--primary); margin-right 8px; border-radius 2px; }
+        .private-titlebefore { background var(--private-gold); }
+
+         卡片佈局 
+        .card-grid { display grid; grid-template-columns repeat(auto-fit, minmax(280px, 1fr)); gap 15px; }
+        .card { background white; border-radius 12px; padding 15px; box-shadow 0 4px 6px rgba(0,0,0,0.05); border-left 5px solid #ccc; }
+        
+         私家醫院卡片 
+        .private-card { border-left-color var(--private-gold); }
+        .gov-card { border-left-color var(--primary); }
+        
+        .hosp-name { font-size 1.1rem; font-weight bold; color #333; margin-bottom 8px; }
+        .wait-row { display flex; justify-content space-between; align-items center; margin-top 10px; padding-top 10px; border-top 1px solid #f0f0f0; }
+        .wait-label { font-size 0.85rem; color #777; }
+        .wait-time { font-size 1.2rem; font-weight bold; color var(--accent); }
+        
+        .update-tag { font-size 0.75rem; color #999; text-align right; margin-top 10px; }
+        .btn-link { font-size 0.75rem; color var(--private-gold); text-decoration none; border 1px solid var(--private-gold); padding 2px 8px; border-radius 4px; }
+    style
+head
+body
+
+    div class=container
+        h1🏥 醫療輪候時間 (公私營整合版)h1
+
+        div class=section-title private-title私家醫院 (24小時門診)div
+        div class=card-grid id=privateList
+            div class=card private-card
+                div class=hosp-name養和醫院 (跑馬地)div
+                div class=wait-row
+                    span class=wait-label預計等候時間span
+                    span class=wait-time id=hksh-time約 1.5 小時span
+                div
+                div class=update-tag
+                    a href=httpspatser.hksh.comfmcwaitingtimelang=zh target=_blank class=btn-link查看官網實時頁面a
+                div
+            div
+            div
+
+        div class=section-title公立醫院 (急症室)div
+        div class=card-grid id=govList
+            div
+        
+        p id=govUpdateTime style=text-aligncenter; font-size0.8rem; color#999; margin-top20px;正在加載公立醫院數據...p
+    div
+
+    script
+         公立醫院數據快照 (附近區域)
+        const govSnapshot = {
+            updateTime 2026年3月18日 下午4時30分,
+            waitTime [
+                {hospName律敦治醫院, t45p954.5 小時},
+                {hospName瑪麗醫院, t45p954 小時},
+                {hospName伊利沙伯醫院, t45p952.5 小時}
+            ]
+        };
+
+        function renderGovCards(data) {
+            const container = document.getElementById('govList');
+            document.getElementById('govUpdateTime').innerText = `公立數據最後更新：${data.updateTime}`;
+            container.innerHTML = ;
+
+            data.waitTime.forEach(hosp = {
+                const card = document.createElement('div');
+                card.className = card gov-card;
+                card.innerHTML = `
+                    div class=hosp-name${hosp.hospName}div
+                    div class=wait-row
+                        span class=wait-label非緊急 (95%名額)span
+                        span class=wait-time${hosp.t45p95}span
+                    div
+                `;
+                container.appendChild(card);
+            });
+        }
+
+         初始化
+        renderGovCards(govSnapshot);
+
+         提示：未來如果你想加入其他私家醫院（例如仁安），
+           你可以在 HTML 的 div id=privateList 裡面複製養和的那個 div 區塊，
+           然後修改名字和時間即可。
+        
+    script
+body
+html
