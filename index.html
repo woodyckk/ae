@@ -3,20 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>全港醫療輪候 Dashboard (穩定版)</title>
+    <title>全港醫療輪候 Dashboard (Actions 自動更新版)</title>
     <style>
         :root { --primary: #2c3e50; --accent: #e74c3c; --private: #8e44ad; --bg: #f4f7f9; }
         body { font-family: "Microsoft JhengHei", sans-serif; background: var(--bg); margin: 0; padding: 10px; }
         .dashboard { max-width: 1000px; margin: auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
         h1 { text-align: center; color: var(--primary); font-size: 1.4rem; margin-bottom: 5px; }
         
-        /* 狀態提示優化 */
-        .status-box { text-align: center; padding: 10px; border-radius: 8px; margin-bottom: 15px; font-size: 0.85rem; }
+        .status-box { text-align: center; padding: 10px; border-radius: 8px; margin-bottom: 15px; font-size: 0.85rem; transition: all 0.3s; }
         .loading { background: #e0f2fe; color: #0369a1; }
         .error { background: #fee2e2; color: #b91c1c; }
         .success { background: #dcfce7; color: #15803d; }
-        
-        .refresh-btn { background: var(--primary); color: white; border: none; padding: 5px 12px; border-radius: 4px; cursor: pointer; margin-top: 5px; }
         
         table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
         th { background: #f8f9fa; padding: 12px 8px; text-align: left; border-bottom: 2px solid #dee2e6; }
@@ -33,7 +30,7 @@
         .rescue { color: #d35400; background: #fff5eb; padding: 4px 6px; border-radius: 4px; font-weight: bold; }
         
         .btn { font-size: 0.7rem; padding: 2px 5px; border: 1px solid var(--private); color: var(--private); text-decoration: none; border-radius: 4px; margin-left: 5px; }
-        .edit-icon { cursor: pointer; color: #aaa; margin-left: 3px; }
+        .edit-icon { cursor: pointer; color: #aaa; margin-left: 3px; font-style: normal; }
     </style>
 </head>
 <body>
@@ -42,16 +39,14 @@
     <h1>🏥 全港醫療輪候 Dashboard</h1>
     
     <div id="statusBox" class="status-box loading">
-        <span id="statusText">正在連線至醫管局 (HA) 數據源...</span>
-        <br>
-        <button class="refresh-btn" onclick="tryFetch(0)">手動重試同步</button>
+        正在讀取 GitHub 自動同步數據...
     </div>
 
     <div style="overflow-x: auto;">
         <table>
             <thead>
                 <tr>
-                    <th>醫院 (及數據時間)</th>
+                    <th>醫院 (最後更新)</th>
                     <th>第一類 (危急)</th>
                     <th>第三類 (次緊急)</th>
                     <th>第四/五類 (非緊急)</th>
@@ -63,17 +58,17 @@
                 <tr>
                     <td><span class="hosp-name">養和醫院 (跑馬地) <a href="https://patser.hksh.com/fmcwaitingtime?lang=zh" target="_blank" class="btn">官網</a></span></td>
                     <td colspan="2" style="color:#999; font-size:0.8rem">私家門診</td>
-                    <td class="wait-time" onclick="editTime(this)">約 1.5 小時 <span class="edit-icon">✎</span></td>
+                    <td class="wait-time" onclick="editTime(this)">約 1.5 小時 <i class="edit-icon">✎</i></td>
                 </tr>
                 <tr>
                     <td><span class="hosp-name">港怡醫院 (黃竹坑) <a href="https://gleneagles.hk/tc/facilities-services/explore-facilities-and-services/general-facilities/24-hour-outpatient-and-emergency" target="_blank" class="btn">官網</a></span></td>
                     <td colspan="2" style="color:#999; font-size:0.8rem">24小時門診</td>
-                    <td class="wait-time" onclick="editTime(this)">約 1 小時 <span class="edit-icon">✎</span></td>
+                    <td class="wait-time" onclick="editTime(this)">約 1 小時 <i class="edit-icon">✎</i></td>
                 </tr>
                 <tr>
                     <td><span class="hosp-name">香港浸信會醫院 <a href="https://www.hkbh.org.hk/24-opd-service/" target="_blank" class="btn">官網</a></span></td>
                     <td colspan="2" style="color:#999; font-size:0.8rem">24小時門診</td>
-                    <td class="wait-time" onclick="editTime(this)">約 2 小時 <span class="edit-icon">✎</span></td>
+                    <td class="wait-time" onclick="editTime(this)">約 2 小時 <i class="edit-icon">✎</i></td>
                 </tr>
                 <tr>
                     <td>
@@ -81,60 +76,41 @@
                         <small style="color:#999">公式: 處理病人時間 - 現在時間</small>
                     </td>
                     <td colspan="2" style="color:#999; font-size:0.8rem">24小時門診</td>
-                    <td class="wait-time" onclick="editTime(this)">約 1.5 小時 <span class="edit-icon">✎</span></td>
+                    <td class="wait-time" onclick="editTime(this)">約 1.5 小時 <i class="edit-icon">✎</i></td>
                 </tr>
             </tbody>
 
             <tbody id="gov-list">
                 <tr class="cat-head"><td colspan="4" class="gov-text">🏛️ 公立醫院 (實時同步全港 18 間)</td></tr>
-                <tr><td colspan="4" style="text-align:center; padding:30px; color:#999;">數據正在同步，如長時間無反應請點擊上方重試...</td></tr>
+                <tr><td colspan="4" style="text-align:center; padding:30px; color:#999;">正在等待 GitHub Actions 生成數據檔案...</td></tr>
             </tbody>
         </table>
     </div>
 </div>
 
 <script>
-    // 增加多個 Proxy 線路以應對 HA 的封鎖
-    const proxyList = [
-        "https://api.allorigins.win/raw?url=",
-        "https://thingproxy.freeboard.io/fetch/",
-        "https://corsproxy.io/?"
-    ];
-    const haJsonUrl = "https://www.ha.org.hk/opendata/aewaitingtime/aewaitingtime-tc.json";
-
-    async function tryFetch(idx) {
+    // 核心邏輯：直接讀取 GitHub Action 生成的本地檔案
+    async function loadData() {
         const statusBox = document.getElementById('statusBox');
-        const statusText = document.getElementById('statusText');
-        
-        statusBox.className = "status-box loading";
-        statusText.innerText = `正在嘗試線路 ${idx + 1}...`;
-
         try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 8000); // 8秒超時
-
-            const response = await fetch(proxyList[idx] + encodeURIComponent(haJsonUrl + "?cache=" + Date.now()), { signal: controller.signal });
-            clearTimeout(timeoutId);
+            // 讀取同目錄下的 ha_data.json，加上時間戳防止瀏覽器快取舊數據
+            const response = await fetch('ha_data.json?t=' + Date.now());
+            if (!response.ok) throw new Error("檔案尚未生成");
             
-            if (!response.ok) throw new Error();
             const data = await response.json();
-            
             renderTable(data);
+            
             statusBox.className = "status-box success";
-            statusText.innerText = `✅ 同步成功！(數據時間: ${data.updateTime})`;
+            statusBox.innerText = `✅ 數據同步成功 (醫管局最後更新時間: ${data.updateTime})`;
         } catch (e) {
-            console.log(`線路 ${idx} 失敗`);
-            if (idx < proxyList.length - 1) {
-                tryFetch(idx + 1);
-            } else {
-                statusBox.className = "status-box error";
-                statusText.innerText = "❌ 所有同步線路均被阻擋。請檢查網路或稍後點擊重試。";
-            }
+            statusBox.className = "status-box error";
+            statusBox.innerText = "❌ 尚未發現數據檔案。請確保你已完成前兩步，並在 Actions 頁面手動點擊過一次 Run workflow。";
         }
     }
 
     function renderTable(data) {
         const list = document.getElementById('gov-list');
+        // 清空等待訊息，保留標題
         list.innerHTML = '<tr class="cat-head"><td colspan="4" class="gov-text">🏛️ 公立醫院 (實時同步全港 18 間)</td></tr>';
         
         data.waitTime.forEach(h => {
@@ -145,7 +121,7 @@
                 <tr>
                     <td>
                         <span class="hosp-name">${h.hospName}</span>
-                        <span class="hosp-upd">更新：${data.updateTime}</span>
+                        <span class="hosp-upd">醫管局更新：${data.updateTime}</span>
                     </td>
                     <td class="${isRescue ? 'rescue' : ''}">${h.t1wt}</td>
                     <td>${h.t3p50}</td>
@@ -156,12 +132,12 @@
     }
 
     function editTime(el) {
-        const val = prompt("請手動更新私家醫院時間：", el.innerText.replace(' ✎', ''));
-        if (val) el.innerHTML = val + ' <span class="edit-icon">✎</span>';
+        const val = prompt("手動更新私家醫院時間：", el.innerText.replace(' ✎', ''));
+        if (val) el.innerHTML = val + ' <i class="edit-icon">✎</i>';
     }
 
-    // 初次執行
-    tryFetch(0);
+    // 啟動載入
+    loadData();
 </script>
 
 </body>
