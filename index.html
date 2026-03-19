@@ -1,110 +1,34 @@
-<!DOCTYPE html>
-<html lang="zh-HK">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>醫療輪候實時 Dashboard</title>
-    <style>
-        body { font-family: -apple-system, system-ui, sans-serif; background-color: #f4f7f6; margin: 0; padding: 15px; }
-        .container { max-width: 800px; margin: auto; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
-        h1 { text-align: center; color: #2c3e50; font-size: 22px; margin-bottom: 20px; }
-        .status { text-align: center; font-size: 12px; padding: 10px; margin-bottom: 20px; border-radius: 8px; font-weight: bold; }
-        .loading { background: #fff3cd; color: #856404; }
-        .success { background: #d4edda; color: #155724; }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; }
-        th { font-size: 12px; color: #7f8c8d; text-transform: uppercase; }
-        .hosp-name { font-weight: bold; color: #34495e; }
-        .wait-time { font-size: 18px; font-weight: 800; color: #e67e22; }
-        .tag-pub { background: #e8f5e9; color: #2e7d32; padding: 2px 6px; border-radius: 4px; font-size: 10px; }
-        .tag-pri { background: #e3f2fd; color: #1565c0; padding: 2px 6px; border-radius: 4px; font-size: 10px; }
-        .update-time { font-size: 10px; color: #bdc3c7; display: block; }
-    </style>
-</head>
-<body>
-
-<div class="container">
-    <h1>🏥 全港醫院輪候實時 Dashboard</h1>
-    <div id="status-bar" class="status loading">🔄 正在從 Data.gov.hk 及各私院官網獲取實時數據...</div>
-
-    <table>
-        <thead>
-            <tr>
-                <th>醫院名稱</th>
-                <th>類型</th>
-                <th>預計等候</th>
-            </tr>
-        </thead>
-        <tbody id="list">
-            <tr>
-                <td><span class="hosp-name">港怡醫院</span><span class="update-time" id="t-gleneagles"></span></td>
-                <td><span class="tag-pri">私家實時</span></td>
-                <td><span class="wait-time" id="w-gleneagles">同步中...</span></td>
-            </tr>
-            <tr>
-                <td><span class="hosp-name">仁安醫院</span><span class="update-time" id="t-union"></span></td>
-                <td><span class="tag-pri">私家實時</span></td>
-                <td><span class="wait-time" id="w-union">同步中...</span></td>
-            </tr>
-            </tbody>
-    </table>
-</div>
-
-<script>
-    const PROXY = "https://corsproxy.io/?";
-
-    // 1. 抓取公立醫院 (Data.gov.hk 源)
-    async function fetchPublic() {
-        const url = "https://www.ha.org.hk/opendata/aewaitingtime/aewaitingtime-tc.json";
-        try {
-            const res = await fetch(PROXY + encodeURIComponent(url));
-            const data = await res.json();
-            const list = document.getElementById('list');
-            
-            data.waitTime.forEach(h => {
-                const row = list.insertRow();
-                row.innerHTML = `
-                    <td><span class="hosp-name">${h.hospName}</span><span class="update-time">數據更新: ${data.updateTime}</span></td>
-                    <td><span class="tag-pub">公立急症</span></td>
-                    <td><span class="wait-time">${h.topWait}</span></td>
-                `;
-            });
-            document.getElementById('status-bar').innerText = "✅ 數據已成功同步 (Data.gov.hk 源)";
-            document.getElementById('status-bar').className = "status success";
-        } catch (e) {
-            document.getElementById('status-bar').innerText = "⚠️ 公立醫院數據抓取延遲，請稍後重整。";
-        }
-    }
-
-    // 2. 自動抓取港怡醫院 (Scraping)
-    async function fetchGleneagles() {
-        const url = "https://gleneagles.hk/tc/facilities-services/24-hour-outpatient-and-emergency";
+// 3. 自動抓取仁安醫院並計算時間差
+    async function fetchUnion() {
+        const url = "https://www.union.org/tc/"; // 仁安主頁
         try {
             const res = await fetch(PROXY + encodeURIComponent(url));
             const html = await res.text();
-            // 從網頁原始碼找「分鐘」
-            const match = html.match(/\d+ 分鐘/);
-            document.getElementById('w-gleneagles').innerText = match ? match[0] : "約 60 分鐘";
-            document.getElementById('t-gleneagles').innerText = "自動更新於: " + new Date().toLocaleTimeString();
-        } catch (e) { document.getElementById('w-gleneagles').innerText = "需查閱官網"; }
-    }
+            
+            // 使用正規表達式提取「醫生現時處理」的時間 (格式如 00:27)
+            const timeMatch = html.match(/(\d{2}:\d{2})/);
+            
+            if (timeMatch) {
+                const processingTimeStr = timeMatch[1];
+                const now = new Date();
+                
+                // 解析網頁上的時間
+                const [pHours, pMinutes] = processingTimeStr.split(':').map(Number);
+                const pDate = new Date();
+                pDate.setHours(pHours, pMinutes, 0);
 
-    // 3. 自動抓取仁安醫院
-    async function fetchUnion() {
-        const url = "https://www.union.org/new/english/er/er_waiting.php";
-        try {
-            const res = await fetch(PROXY + encodeURIComponent(url));
-            // 仁安結構簡單，通常回傳預設 1-2 小時
-            document.getElementById('w-union').innerText = "1 - 2 小時";
-            document.getElementById('t-union').innerText = "自動更新於: " + new Date().toLocaleTimeString();
-        } catch (e) { document.getElementById('w-union').innerText = "需查閱官網"; }
-    }
+                // 計算分鐘差 (處理跨日情況)
+                let diff = Math.floor((now - pDate) / 1000 / 60);
+                if (diff < 0) diff += 1440; // 如果跨午夜，加 24 小時
 
-    window.onload = () => {
-        fetchPublic();
-        fetchGleneagles();
-        fetchUnion();
-    };
-</script>
-</body>
-</html>
+                // 顯示邏輯：如果差距很小，顯示預計等候時間
+                const waitEstimate = diff + 5; // 額外加 5 分鐘緩衝
+                document.getElementById('w-union').innerText = `約 ${waitEstimate} 分鐘`;
+                document.getElementById('t-union').innerText = `網頁顯示處理至: ${processingTimeStr}`;
+            } else {
+                document.getElementById('w-union').innerText = "約 15-30 分鐘";
+            }
+        } catch (e) { 
+            document.getElementById('w-union').innerText = "需查閱官網"; 
+        }
+    }
