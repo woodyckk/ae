@@ -18,7 +18,7 @@
         .section-header { background-color: #f1f3f5; font-weight: bold; padding: 10px 12px; font-size: 15px; }
         .hospital-name { font-weight: 600; display: block; }
         .wait-time { font-weight: bold; font-size: 16px; }
-        .private-wait-time { color: #8e44ad; font-weight: bold; cursor: pointer; text-decoration: underline; text-decoration-style: dotted; }
+        .private-wait { color: #8e44ad; font-weight: bold; cursor: pointer; text-decoration: underline dotted; }
         .tag { font-size: 10px; padding: 2px 6px; border-radius: 4px; border: 1px solid #ccc; color: #777; text-decoration: none; display: inline-block; margin-top: 2px; }
     </style>
 </head>
@@ -26,47 +26,45 @@
 
 <div class="container">
     <h1>🏥 全港醫療輪候 Dashboard</h1>
-    <div id="status-message" class="status-bar loading">正在同步最新數據...</div>
+    <div id="status-message" class="status-bar loading">正在透過多重中轉嘗試獲取數據...</div>
 
     <div style="overflow-x: auto;">
         <table>
             <thead>
                 <tr>
-                    <th>醫院 (及官網連結)</th>
+                    <th>醫院 (點擊連結看實時)</th>
                     <th>服務類型</th>
                     <th>預計輪候時間</th>
                 </tr>
             </thead>
             <tbody id="hospital-list">
-                <tr class="section-header">
-                    <td colspan="3">🌟 私家醫院 (點擊紫色時間可手動修改)</td>
-                </tr>
+                <tr class="section-header"><td colspan="3">🌟 私家醫院 (手動維護)</td></tr>
                 <tr>
-                    <td><span class="hospital-name">養和醫院 (跑馬地)</span> <a href="https://mobile.hksh.com/zh-hk/clinical-services/24-hour-outpatient-service" class="tag" target="_blank">查看官網實時</a></td>
+                    <td><span class="hospital-name">養和醫院 (跑馬地)</span> <a href="https://mobile.hksh.com/zh-hk/clinical-services/24-hour-outpatient-service" class="tag" target="_blank">官網</a></td>
                     <td>24小時門診</td>
-                    <td><span class="private-wait-time" onclick="editTime(this)">約 1.5 小時 ✎</span></td>
+                    <td><span class="private-wait" onclick="editTime(this)">約 1.5 小時 ✎</span></td>
                 </tr>
                 <tr>
-                    <td><span class="hospital-name">港怡醫院 (黃竹坑)</span> <a href="https://gleneagles.hk/tc/facilities-services/explore-facilities-and-services/general-facilities/24-hour-outpatient-and-emergency" class="tag" target="_blank">查看官網實時</a></td>
+                    <td><span class="hospital-name">港怡醫院 (黃竹坑)</span> <a href="https://gleneagles.hk/tc/facilities-services/explore-facilities-and-services/general-facilities/24-hour-outpatient-and-emergency" class="tag" target="_blank">官網</a></td>
                     <td>24小時門診/急症</td>
-                    <td><span class="private-wait-time" onclick="editTime(this)">約 1 小時 ✎</span></td>
+                    <td><span class="private-wait" onclick="editTime(this)">約 1 小時 ✎</span></td>
                 </tr>
                 <tr>
-                    <td><span class="hospital-name">香港浸信會醫院 (九龍塘)</span> <a href="https://www.hkbh.org.hk/24-opd-service/" class="tag" target="_blank">查看官網實時</a></td>
+                    <td><span class="hospital-name">香港浸信會醫院</span> <a href="https://www.hkbh.org.hk/24-opd-service/" class="tag" target="_blank">官網</a></td>
                     <td>24小時門診</td>
-                    <td><span class="private-wait-time" onclick="editTime(this)">約 2 小時 ✎</span></td>
+                    <td><span class="private-wait" onclick="editTime(this)">約 2 小時 ✎</span></td>
                 </tr>
                 <tr>
-                    <td><span class="hospital-name">仁安醫院 (大圍)</span> <a href="https://www.union.org/en/service-overview/specialty/emergency-medicine" class="tag" target="_blank">查看官網實時</a></td>
+                    <td><span class="hospital-name">仁安醫院 (大圍)</span> <a href="https://www.union.org/en/service-overview/specialty/emergency-medicine" class="tag" target="_blank">官網</a></td>
                     <td>急症門診</td>
-                    <td><span class="private-wait-time" onclick="editTime(this)">約 1.5 小時 ✎</span></td>
+                    <td><span class="private-wait" onclick="editTime(this)">約 1.5 小時 ✎</span></td>
                 </tr>
 
-                <tr class="section-header">
-                    <td colspan="3">🏛️ 公立醫院 (實時同步 18 間)</td>
-                </tr>
+                <tr class="section-header"><td colspan="3">🏛️ 公立醫院 (實時同步)</td></tr>
                 <tr id="ha-loading-row">
-                    <td colspan="3" style="text-align: center; color: #999; padding: 40px; font-size: 13px;">正在請求數據中，請稍候...</td>
+                    <td colspan="3" style="text-align: center; color: #999; padding: 30px;">
+                        正在嘗試連接醫管局...<br><small>如等候超過30秒，請重新整理</small>
+                    </td>
                 </tr>
             </tbody>
         </table>
@@ -74,49 +72,61 @@
 </div>
 
 <script>
-    const HA_API_URL = "https://www.ha.org.hk/opendata/aewaitingtime/aewaitingtime-tc.json";
-    const PROXY_URL = "https://api.allorigins.win/get?url=";
+    const HA_URL = "https://www.ha.org.hk/opendata/aewaitingtime/aewaitingtime-tc.json";
+    // 同時嘗試兩個不同的中轉站，邊個快用邊個
+    const PROXIES = [
+        "https://api.allorigins.win/get?url=",
+        "https://thingproxy.freeboard.io/fetch/"
+    ];
 
-    async function fetchPublicHospitalData() {
+    async function tryFetch(proxyIdx = 0) {
         const statusMsg = document.getElementById('status-message');
         const listBody = document.getElementById('hospital-list');
         const loadingRow = document.getElementById('ha-loading-row');
 
         try {
-            const response = await fetch(`${PROXY_URL}${encodeURIComponent(HA_API_URL)}`);
-            const rawData = await response.json();
-            const data = JSON.parse(rawData.contents);
-            const waitTimeList = data.waitTime;
+            const currentProxy = PROXIES[proxyIdx];
+            console.log(`嘗試中轉站: ${currentProxy}`);
+            const response = await fetch(`${currentProxy}${encodeURIComponent(HA_URL)}`);
+            const raw = await response.json();
+            
+            // AllOrigins 需要解析 contents
+            const data = typeof raw.contents === 'string' ? JSON.parse(raw.contents) : raw;
+            const list = data.waitTime;
 
             if (loadingRow) loadingRow.remove();
-
-            waitTimeList.forEach(item => {
-                const isRescue = item.topWait.includes('搶救');
-                const waitColor = isRescue ? '#d9534f' : '#f0ad4e';
+            list.forEach(item => {
+                const isLong = item.topWait.includes('8') || item.topWait.includes('超過');
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <td><span class="hospital-name">${item.hospName}</span></td>
                     <td style="color: #28a745; font-size: 11px;">公立急症</td>
-                    <td><span class="wait-time" style="color: ${waitColor}">${item.topWait}</span></td>
+                    <td><span class="wait-time" style="color: ${isLong ? '#d9534f' : '#f0ad4e'}">${item.topWait}</span></td>
                 `;
                 listBody.appendChild(row);
             });
 
-            statusMsg.innerText = `✅ 公立醫院同步成功 | 私家醫院請點擊標籤查看即時`;
+            statusMsg.innerText = "✅ 數據同步成功";
             statusMsg.className = "status-bar success";
-        } catch (error) {
-            statusMsg.innerText = "⚠️ 公立醫院自動同步稍有延遲，請重整網頁。";
-            statusMsg.className = "status-bar error";
+
+        } catch (e) {
+            console.error(e);
+            if (proxyIdx < PROXIES.length - 1) {
+                // 如果第一個失敗，嘗試第二個
+                tryFetch(proxyIdx + 1);
+            } else {
+                statusMsg.innerText = "❌ 中轉伺服器繁忙，請點擊【重新整理】";
+                statusMsg.className = "status-bar error";
+            }
         }
     }
 
     function editTime(element) {
-        const currentText = element.innerText.replace(' ✎', '');
-        const newTime = prompt("請輸入新的輪候時間:", currentText);
+        const newTime = prompt("請輸入新的輪候時間:", element.innerText.replace(' ✎', ''));
         if (newTime) element.innerHTML = `${newTime} ✎`;
     }
 
-    window.onload = fetchPublicHospitalData;
+    window.onload = () => tryFetch(0);
 </script>
 </body>
 </html>
