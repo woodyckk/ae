@@ -3,21 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>全港急症室輪候實時 Dashboard</title>
+    <title>全港醫療輪候 Dashboard</title>
     <style>
         :root { --primary: #2c3e50; --accent: #e74c3c; --private: #8e44ad; --bg: #f4f7f9; }
         body { font-family: "Microsoft JhengHei", sans-serif; background: var(--bg); margin: 0; padding: 10px; }
         .dashboard { max-width: 1000px; margin: auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
         h1 { text-align: center; color: var(--primary); font-size: 1.4rem; margin-bottom: 5px; }
-        .status { text-align: center; font-size: 0.8rem; color: #666; margin-bottom: 15px; }
+        .status { text-align: center; font-size: 0.8rem; color: #666; margin-bottom: 15px; padding: 5px; border-radius: 5px; }
+        .status.error { background: #fee2e2; color: #b91c1c; }
+        .status.success { background: #dcfce7; color: #15803d; }
         
         table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
         th { background: #f8f9fa; padding: 12px 8px; text-align: left; border-bottom: 2px solid #dee2e6; color: #495057; }
         td { padding: 12px 8px; border-bottom: 1px solid #eee; }
         
-        .cat-head { background: #f1f3f5; font-weight: bold; padding: 10px; }
-        .private-text { color: var(--private); border-left: 4px solid var(--private); }
-        .gov-text { color: var(--primary); border-left: 4px solid var(--primary); }
+        .cat-head { background: #f1f3f5; font-weight: bold; }
+        .private-text { color: var(--private); border-left: 4px solid var(--private); padding-left: 10px; }
+        .gov-text { color: var(--primary); border-left: 4px solid var(--primary); padding-left: 10px; }
         
         .hosp-name { font-weight: bold; display: block; }
         .hosp-upd { font-size: 0.7rem; color: #999; font-weight: normal; }
@@ -25,15 +27,15 @@
         .warning { color: var(--accent); }
         .rescue { color: #d35400; background: #fff5eb; padding: 4px 6px; border-radius: 4px; font-weight: bold; }
         
-        .btn { font-size: 0.7rem; padding: 3px 6px; border: 1px solid var(--private); color: var(--private); text-decoration: none; border-radius: 4px; }
-        .edit-icon { cursor: pointer; color: #aaa; margin-left: 5px; font-size: 0.8rem; }
+        .btn { font-size: 0.7rem; padding: 2px 5px; border: 1px solid var(--private); color: var(--private); text-decoration: none; border-radius: 4px; margin-left: 5px; }
+        .edit-icon { cursor: pointer; color: #aaa; font-size: 0.8rem; margin-left: 3px; }
     </style>
 </head>
 <body>
 
 <div class="dashboard">
     <h1>🏥 全港醫療輪候 Dashboard</h1>
-    <div class="status" id="loadStatus">正在同步醫管局 (HA) 實時數據...</div>
+    <div class="status" id="loadStatus">正在嘗試連線至醫管局 (HA)...</div>
 
     <div style="overflow-x: auto;">
         <table>
@@ -47,82 +49,102 @@
             </thead>
             
             <tbody id="private-list">
-                <tr class="cat-head"><td colspan="4" class="private-text">🌟 私家醫院 (需手動核實後點擊時間修改)</td></tr>
+                <tr class="cat-head"><td colspan="4" class="private-text">🌟 私家醫院 (點擊時間可手動修改)</td></tr>
                 <tr>
-                    <td><span class="hosp-name">養和醫院 (跑馬地)</span><a href="https://patser.hksh.com/fmcwaitingtime?lang=zh" target="_blank" class="btn">官網</a></td>
+                    <td><span class="hosp-name">養和醫院 (跑馬地) <a href="https://patser.hksh.com/fmcwaitingtime?lang=zh" target="_blank" class="btn">官網</a></span></td>
                     <td colspan="2" style="color:#999; font-size:0.8rem">私家門診</td>
                     <td class="wait-time" onclick="editTime(this)">約 1.5 小時 <span class="edit-icon">✎</span></td>
                 </tr>
                 <tr>
-                    <td><span class="hosp-name">港怡醫院 (黃竹坑)</span><a href="https://gleneagles.hk/tc/..." target="_blank" class="btn">官網</a></td>
+                    <td><span class="hosp-name">港怡醫院 (黃竹坑) <a href="https://gleneagles.hk/tc/facilities-services/explore-facilities-and-services/general-facilities/24-hour-outpatient-and-emergency" target="_blank" class="btn">官網</a></span></td>
                     <td colspan="2" style="color:#999; font-size:0.8rem">24小時門診</td>
                     <td class="wait-time" onclick="editTime(this)">約 1 小時 <span class="edit-icon">✎</span></td>
                 </tr>
                 <tr>
-                    <td><span class="hosp-name">香港浸信會醫院</span><a href="https://www.hkbh.org.hk/..." target="_blank" class="btn">官網</a></td>
+                    <td><span class="hosp-name">香港浸信會醫院 <a href="https://www.hkbh.org.hk/24-opd-service/" target="_blank" class="btn">官網</a></span></td>
                     <td colspan="2" style="color:#999; font-size:0.8rem">24小時門診</td>
                     <td class="wait-time" onclick="editTime(this)">約 2 小時 <span class="edit-icon">✎</span></td>
                 </tr>
                 <tr>
-                    <td><span class="hosp-name">仁安醫院 (大圍)</span><a href="https://www.union.org/..." target="_blank" class="btn">官網</a><br><small style="color:#999">計算: 處理病人時間 - 現在</small></td>
+                    <td>
+                        <span class="hosp-name">仁安醫院 (大圍) <a href="https://www.union.org/tc/" target="_blank" class="btn">官網</a></span>
+                        <small style="color:#999">計算: 處理病人時間 - 現在</small>
+                    </td>
                     <td colspan="2" style="color:#999; font-size:0.8rem">24小時門診</td>
                     <td class="wait-time" onclick="editTime(this)">約 1.5 小時 <span class="edit-icon">✎</span></td>
                 </tr>
             </tbody>
 
             <tbody id="gov-list">
-                <tr class="cat-head"><td colspan="4" class="gov-text">🏛️ 公立醫院 (實時同步全港18間)</td></tr>
-                <tr><td colspan="4" style="text-align:center; padding:20px;">數據抓取中...</td></tr>
+                <tr class="cat-head"><td colspan="4" class="gov-text">🏛️ 公立醫院 (實時同步全港 18 間)</td></tr>
+                <tr><td colspan="4" style="text-align:center; padding:30px; color:#999;">數據讀取中，請稍候...</td></tr>
             </tbody>
         </table>
     </div>
 </div>
 
 <script>
-    // 解決 CORS 阻擋的代理地址 + 醫管局 JSON (加上時間戳防止緩存)
-    const HA_URL = "https://api.allorigins.win/raw?url=" + encodeURIComponent("https://www.ha.org.hk/opendata/aewaitingtime/aewaitingtime-tc.json?t=" + Date.now());
+    // 雙路徑備援機制
+    const proxyList = [
+        "https://api.allorigins.win/raw?url=",
+        "https://corsproxy.io/?"
+    ];
+    const haJsonUrl = "https://www.ha.org.hk/opendata/aewaitingtime/aewaitingtime-tc.json";
 
-    async function updateHAData() {
+    async function tryFetch(proxyIdx = 0) {
+        const statusEl = document.getElementById('loadStatus');
+        const targetUrl = proxyList[proxyIdx] + encodeURIComponent(haJsonUrl + "?t=" + Date.now());
+
         try {
-            const response = await fetch(HA_URL);
+            const response = await fetch(targetUrl);
+            if (!response.ok) throw new Error("Server Error");
             const data = await response.json();
-            const list = document.getElementById('gov-list');
-            
-            // 保留標題，清空舊數據
-            list.innerHTML = '<tr class="cat-head"><td colspan="4" class="gov-text">🏛️ 公立醫院 (實時同步全港18間)</td></tr>';
-            
-            data.waitTime.forEach(h => {
-                const isRescue = h.t1wt.includes("搶救");
-                const isWarning = parseFloat(h.t45p95) >= 6;
-                
-                const row = `
-                    <tr>
-                        <td>
-                            <span class="hosp-name">${h.hospName}</span>
-                            <span class="hosp-upd">更新：${data.updateTime}</span>
-                        </td>
-                        <td class="${isRescue ? 'rescue' : ''}">${h.t1wt}</td>
-                        <td>${h.t3p50}</td>
-                        <td class="wait-time ${isWarning ? 'warning' : ''}">${h.t45p95}</td>
-                    </tr>
-                `;
-                list.innerHTML += row;
-            });
-            document.getElementById('loadStatus').innerText = "✅ 已成功抓取最新實時數據";
+            renderTable(data);
+            statusEl.innerText = "✅ 實時數據更新成功 (" + new Date().toLocaleTimeString() + ")";
+            statusEl.className = "status success";
         } catch (e) {
-            document.getElementById('loadStatus').innerText = "❌ 自動同步失敗，請手動刷新頁面";
+            console.error(`路徑 ${proxyIdx} 失敗`, e);
+            if (proxyIdx < proxyList.length - 1) {
+                statusEl.innerText = "⚠️ 正在切換備用線路...";
+                tryFetch(proxyIdx + 1);
+            } else {
+                statusEl.innerText = "❌ 數據同步失敗，請檢查網路或稍後再試。";
+                statusEl.className = "status error";
+            }
         }
     }
 
+    function renderTable(data) {
+        const list = document.getElementById('gov-list');
+        list.innerHTML = '<tr class="cat-head"><td colspan="4" class="gov-cat gov-text">🏛️ 公立醫院 (實時同步全港 18 間)</td></tr>';
+        
+        data.waitTime.forEach(h => {
+            const isRescue = h.t1wt.includes("搶救");
+            const isWarning = parseFloat(h.t45p95) >= 6;
+            
+            const row = `
+                <tr>
+                    <td>
+                        <span class="hosp-name">${h.hospName}</span>
+                        <span class="hosp-upd">醫管局更新：${data.updateTime}</span>
+                    </td>
+                    <td class="${isRescue ? 'rescue' : ''}">${h.t1wt}</td>
+                    <td>${h.t3p50}</td>
+                    <td class="wait-time ${isWarning ? 'warning' : ''}">${h.t45p95}</td>
+                </tr>
+            `;
+            list.innerHTML += row;
+        });
+    }
+
     function editTime(el) {
-        const val = prompt("請輸入最新輪候時間：", el.innerText.replace(' ✎', ''));
+        const val = prompt("請輸入最新時間 (例如: 約 2 小時):", el.innerText.replace(' ✎', ''));
         if (val) el.innerHTML = val + ' <span class="edit-icon">✎</span>';
     }
 
-    // 啟動抓取
-    updateHAData();
-    // 每 10 分鐘自動刷新一次
-    setInterval(updateHAData, 600000);
+    // 啟動抓取並設定每 5 分鐘自動刷新
+    tryFetch();
+    setInterval(() => tryFetch(), 300000);
 </script>
 
 </body>
