@@ -3,18 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>全港醫療輪候 Dashboard</title>
+    <title>全港醫療輪候 Dashboard (穩定版)</title>
     <style>
         :root { --primary: #2c3e50; --accent: #e74c3c; --private: #8e44ad; --bg: #f4f7f9; }
         body { font-family: "Microsoft JhengHei", sans-serif; background: var(--bg); margin: 0; padding: 10px; }
         .dashboard { max-width: 1000px; margin: auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
         h1 { text-align: center; color: var(--primary); font-size: 1.4rem; margin-bottom: 5px; }
-        .status { text-align: center; font-size: 0.8rem; color: #666; margin-bottom: 15px; padding: 5px; border-radius: 5px; }
-        .status.error { background: #fee2e2; color: #b91c1c; }
-        .status.success { background: #dcfce7; color: #15803d; }
+        
+        /* 狀態提示優化 */
+        .status-box { text-align: center; padding: 10px; border-radius: 8px; margin-bottom: 15px; font-size: 0.85rem; }
+        .loading { background: #e0f2fe; color: #0369a1; }
+        .error { background: #fee2e2; color: #b91c1c; }
+        .success { background: #dcfce7; color: #15803d; }
+        
+        .refresh-btn { background: var(--primary); color: white; border: none; padding: 5px 12px; border-radius: 4px; cursor: pointer; margin-top: 5px; }
         
         table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
-        th { background: #f8f9fa; padding: 12px 8px; text-align: left; border-bottom: 2px solid #dee2e6; color: #495057; }
+        th { background: #f8f9fa; padding: 12px 8px; text-align: left; border-bottom: 2px solid #dee2e6; }
         td { padding: 12px 8px; border-bottom: 1px solid #eee; }
         
         .cat-head { background: #f1f3f5; font-weight: bold; }
@@ -22,26 +27,31 @@
         .gov-text { color: var(--primary); border-left: 4px solid var(--primary); padding-left: 10px; }
         
         .hosp-name { font-weight: bold; display: block; }
-        .hosp-upd { font-size: 0.7rem; color: #999; font-weight: normal; }
+        .hosp-upd { font-size: 0.7rem; color: #999; }
         .wait-time { font-weight: bold; font-size: 1.1rem; }
         .warning { color: var(--accent); }
         .rescue { color: #d35400; background: #fff5eb; padding: 4px 6px; border-radius: 4px; font-weight: bold; }
         
         .btn { font-size: 0.7rem; padding: 2px 5px; border: 1px solid var(--private); color: var(--private); text-decoration: none; border-radius: 4px; margin-left: 5px; }
-        .edit-icon { cursor: pointer; color: #aaa; font-size: 0.8rem; margin-left: 3px; }
+        .edit-icon { cursor: pointer; color: #aaa; margin-left: 3px; }
     </style>
 </head>
 <body>
 
 <div class="dashboard">
     <h1>🏥 全港醫療輪候 Dashboard</h1>
-    <div class="status" id="loadStatus">正在嘗試連線至醫管局 (HA)...</div>
+    
+    <div id="statusBox" class="status-box loading">
+        <span id="statusText">正在連線至醫管局 (HA) 數據源...</span>
+        <br>
+        <button class="refresh-btn" onclick="tryFetch(0)">手動重試同步</button>
+    </div>
 
     <div style="overflow-x: auto;">
         <table>
             <thead>
                 <tr>
-                    <th>醫院 (最後更新)</th>
+                    <th>醫院 (及數據時間)</th>
                     <th>第一類 (危急)</th>
                     <th>第三類 (次緊急)</th>
                     <th>第四/五類 (非緊急)</th>
@@ -49,7 +59,7 @@
             </thead>
             
             <tbody id="private-list">
-                <tr class="cat-head"><td colspan="4" class="private-text">🌟 私家醫院 (點擊時間可手動修改)</td></tr>
+                <tr class="cat-head"><td colspan="4" class="private-text">🌟 私家醫院 (點擊時間可直接修改)</td></tr>
                 <tr>
                     <td><span class="hosp-name">養和醫院 (跑馬地) <a href="https://patser.hksh.com/fmcwaitingtime?lang=zh" target="_blank" class="btn">官網</a></span></td>
                     <td colspan="2" style="color:#999; font-size:0.8rem">私家門診</td>
@@ -68,7 +78,7 @@
                 <tr>
                     <td>
                         <span class="hosp-name">仁安醫院 (大圍) <a href="https://www.union.org/tc/" target="_blank" class="btn">官網</a></span>
-                        <small style="color:#999">計算: 處理病人時間 - 現在</small>
+                        <small style="color:#999">公式: 處理病人時間 - 現在時間</small>
                     </td>
                     <td colspan="2" style="color:#999; font-size:0.8rem">24小時門診</td>
                     <td class="wait-time" onclick="editTime(this)">約 1.5 小時 <span class="edit-icon">✎</span></td>
@@ -77,74 +87,81 @@
 
             <tbody id="gov-list">
                 <tr class="cat-head"><td colspan="4" class="gov-text">🏛️ 公立醫院 (實時同步全港 18 間)</td></tr>
-                <tr><td colspan="4" style="text-align:center; padding:30px; color:#999;">數據讀取中，請稍候...</td></tr>
+                <tr><td colspan="4" style="text-align:center; padding:30px; color:#999;">數據正在同步，如長時間無反應請點擊上方重試...</td></tr>
             </tbody>
         </table>
     </div>
 </div>
 
 <script>
-    // 雙路徑備援機制
+    // 增加多個 Proxy 線路以應對 HA 的封鎖
     const proxyList = [
         "https://api.allorigins.win/raw?url=",
+        "https://thingproxy.freeboard.io/fetch/",
         "https://corsproxy.io/?"
     ];
     const haJsonUrl = "https://www.ha.org.hk/opendata/aewaitingtime/aewaitingtime-tc.json";
 
-    async function tryFetch(proxyIdx = 0) {
-        const statusEl = document.getElementById('loadStatus');
-        const targetUrl = proxyList[proxyIdx] + encodeURIComponent(haJsonUrl + "?t=" + Date.now());
+    async function tryFetch(idx) {
+        const statusBox = document.getElementById('statusBox');
+        const statusText = document.getElementById('statusText');
+        
+        statusBox.className = "status-box loading";
+        statusText.innerText = `正在嘗試線路 ${idx + 1}...`;
 
         try {
-            const response = await fetch(targetUrl);
-            if (!response.ok) throw new Error("Server Error");
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 8000); // 8秒超時
+
+            const response = await fetch(proxyList[idx] + encodeURIComponent(haJsonUrl + "?cache=" + Date.now()), { signal: controller.signal });
+            clearTimeout(timeoutId);
+            
+            if (!response.ok) throw new Error();
             const data = await response.json();
+            
             renderTable(data);
-            statusEl.innerText = "✅ 實時數據更新成功 (" + new Date().toLocaleTimeString() + ")";
-            statusEl.className = "status success";
+            statusBox.className = "status-box success";
+            statusText.innerText = `✅ 同步成功！(數據時間: ${data.updateTime})`;
         } catch (e) {
-            console.error(`路徑 ${proxyIdx} 失敗`, e);
-            if (proxyIdx < proxyList.length - 1) {
-                statusEl.innerText = "⚠️ 正在切換備用線路...";
-                tryFetch(proxyIdx + 1);
+            console.log(`線路 ${idx} 失敗`);
+            if (idx < proxyList.length - 1) {
+                tryFetch(idx + 1);
             } else {
-                statusEl.innerText = "❌ 數據同步失敗，請檢查網路或稍後再試。";
-                statusEl.className = "status error";
+                statusBox.className = "status-box error";
+                statusText.innerText = "❌ 所有同步線路均被阻擋。請檢查網路或稍後點擊重試。";
             }
         }
     }
 
     function renderTable(data) {
         const list = document.getElementById('gov-list');
-        list.innerHTML = '<tr class="cat-head"><td colspan="4" class="gov-cat gov-text">🏛️ 公立醫院 (實時同步全港 18 間)</td></tr>';
+        list.innerHTML = '<tr class="cat-head"><td colspan="4" class="gov-text">🏛️ 公立醫院 (實時同步全港 18 間)</td></tr>';
         
         data.waitTime.forEach(h => {
             const isRescue = h.t1wt.includes("搶救");
             const isWarning = parseFloat(h.t45p95) >= 6;
             
-            const row = `
+            list.innerHTML += `
                 <tr>
                     <td>
                         <span class="hosp-name">${h.hospName}</span>
-                        <span class="hosp-upd">醫管局更新：${data.updateTime}</span>
+                        <span class="hosp-upd">更新：${data.updateTime}</span>
                     </td>
                     <td class="${isRescue ? 'rescue' : ''}">${h.t1wt}</td>
                     <td>${h.t3p50}</td>
                     <td class="wait-time ${isWarning ? 'warning' : ''}">${h.t45p95}</td>
                 </tr>
             `;
-            list.innerHTML += row;
         });
     }
 
     function editTime(el) {
-        const val = prompt("請輸入最新時間 (例如: 約 2 小時):", el.innerText.replace(' ✎', ''));
+        const val = prompt("請手動更新私家醫院時間：", el.innerText.replace(' ✎', ''));
         if (val) el.innerHTML = val + ' <span class="edit-icon">✎</span>';
     }
 
-    // 啟動抓取並設定每 5 分鐘自動刷新
-    tryFetch();
-    setInterval(() => tryFetch(), 300000);
+    // 初次執行
+    tryFetch(0);
 </script>
 
 </body>
