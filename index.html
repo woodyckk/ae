@@ -3,143 +3,126 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>全港公私營醫療輪候 Dashboard</title>
+    <title>全港急症室輪候實時 Dashboard</title>
     <style>
-        :root { --primary: #2c3e50; --accent: #e74c3c; --private: #8e44ad; --bg: #f8f9fa; }
-        body { font-family: "Microsoft JhengHei", sans-serif; background: var(--bg); margin: 0; padding: 15px; }
-        .dashboard { max-width: 1000px; margin: auto; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
-        h1 { text-align: center; color: var(--primary); font-size: 1.5rem; margin-bottom: 5px; }
-        .status-bar { text-align: center; font-size: 0.85rem; color: #666; margin-bottom: 20px; }
+        :root { --primary: #2c3e50; --accent: #e74c3c; --private: #8e44ad; --bg: #f4f7f9; }
+        body { font-family: "Microsoft JhengHei", sans-serif; background: var(--bg); margin: 0; padding: 10px; }
+        .dashboard { max-width: 1000px; margin: auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: var(--primary); font-size: 1.4rem; margin-bottom: 5px; }
+        .status { text-align: center; font-size: 0.8rem; color: #666; margin-bottom: 15px; }
         
-        .table-container { overflow-x: auto; }
-        table { width: 100%; border-collapse: collapse; min-width: 800px; }
-        th { background: #f2f2f2; padding: 12px; text-align: left; font-size: 0.9rem; border-bottom: 2px solid #ddd; }
-        td { padding: 12px; border-bottom: 1px solid #eee; vertical-align: middle; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
+        th { background: #f8f9fa; padding: 12px 8px; text-align: left; border-bottom: 2px solid #dee2e6; color: #495057; }
+        td { padding: 12px 8px; border-bottom: 1px solid #eee; }
         
-        .cat-row { background: #fdfdfd; font-weight: bold; }
-        .private-cat { color: var(--private); border-left: 5px solid var(--private); }
-        .gov-cat { color: var(--primary); border-left: 5px solid var(--primary); }
+        .cat-head { background: #f1f3f5; font-weight: bold; padding: 10px; }
+        .private-text { color: var(--private); border-left: 4px solid var(--private); }
+        .gov-text { color: var(--primary); border-left: 4px solid var(--primary); }
         
-        .hosp-info { display: flex; flex-direction: column; }
-        .hosp-name { font-weight: bold; color: #333; }
-        .hosp-time { font-size: 0.75rem; color: #999; margin-top: 3px; }
-        
+        .hosp-name { font-weight: bold; display: block; }
+        .hosp-upd { font-size: 0.7rem; color: #999; font-weight: normal; }
         .wait-time { font-weight: bold; font-size: 1.1rem; }
         .warning { color: var(--accent); }
-        .rescue { color: #d35400; background: #fff5eb; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
+        .rescue { color: #d35400; background: #fff5eb; padding: 4px 6px; border-radius: 4px; font-weight: bold; }
         
-        .btn { font-size: 0.75rem; padding: 4px 8px; border-radius: 5px; text-decoration: none; border: 1px solid; cursor: pointer; display: inline-block; }
-        .btn-private { color: var(--private); border-color: var(--private); }
-        .btn-update { background: #eee; color: #666; border-color: #ccc; margin-left: 5px; }
+        .btn { font-size: 0.7rem; padding: 3px 6px; border: 1px solid var(--private); color: var(--private); text-decoration: none; border-radius: 4px; }
+        .edit-icon { cursor: pointer; color: #aaa; margin-left: 5px; font-size: 0.8rem; }
     </style>
 </head>
 <body>
 
 <div class="dashboard">
-    <h1>🏥 醫療輪候 Dashboard</h1>
-    <div class="status-bar" id="globalStatus">正在連線至醫管局 (HA) 實時數據庫...</div>
+    <h1>🏥 全港醫療輪候 Dashboard</h1>
+    <div class="status" id="loadStatus">正在同步醫管局 (HA) 實時數據...</div>
 
-    <div class="table-container">
+    <div style="overflow-x: auto;">
         <table>
             <thead>
                 <tr>
-                    <th>醫院名稱 (及更新時間)</th>
-                    <th>危急 (第一類)</th>
-                    <th>次緊急 (第三類)</th>
-                    <th>非緊急 (第四/五類)</th>
+                    <th>醫院 (最後更新)</th>
+                    <th>第一類 (危急)</th>
+                    <th>第三類 (次緊急)</th>
+                    <th>第四/五類 (非緊急)</th>
                 </tr>
             </thead>
-            <tbody id="privateBody">
-                <tr class="cat-row"><td colspan="4" class="private-cat">🌟 私家醫院 (請點擊官網核實並記錄)</td></tr>
-                <tr id="hksh">
-                    <td>
-                        <div class="hosp-info">
-                            <span class="hosp-name">養和醫院 (跑馬地)</span>
-                            <span class="hosp-time" id="hksh-upd">需手動核實</span>
-                        </div>
-                    </td>
-                    <td colspan="2"><a href="https://patser.hksh.com/fmcwaitingtime?lang=zh" target="_blank" class="btn btn-private">打開官網</a></td>
-                    <td class="wait-time" id="hksh-val" onclick="updatePrivate('hksh')">約 1.5 小時 ✎</td>
+            
+            <tbody id="private-list">
+                <tr class="cat-head"><td colspan="4" class="private-text">🌟 私家醫院 (需手動核實後點擊時間修改)</td></tr>
+                <tr>
+                    <td><span class="hosp-name">養和醫院 (跑馬地)</span><a href="https://patser.hksh.com/fmcwaitingtime?lang=zh" target="_blank" class="btn">官網</a></td>
+                    <td colspan="2" style="color:#999; font-size:0.8rem">私家門診</td>
+                    <td class="wait-time" onclick="editTime(this)">約 1.5 小時 <span class="edit-icon">✎</span></td>
                 </tr>
-                <tr id="union">
-                    <td>
-                        <div class="hosp-info">
-                            <span class="hosp-name">仁安醫院 (大圍)</span>
-                            <span class="hosp-time" id="union-upd">需手動核實</span>
-                        </div>
-                    </td>
-                    <td colspan="2"><a href="https://www.union.org/tc/" target="_blank" class="btn btn-private">打開官網</a></td>
-                    <td class="wait-time" id="union-val" onclick="updatePrivate('union')">約 2 小時 ✎</td>
+                <tr>
+                    <td><span class="hosp-name">港怡醫院 (黃竹坑)</span><a href="https://gleneagles.hk/tc/..." target="_blank" class="btn">官網</a></td>
+                    <td colspan="2" style="color:#999; font-size:0.8rem">24小時門診</td>
+                    <td class="wait-time" onclick="editTime(this)">約 1 小時 <span class="edit-icon">✎</span></td>
+                </tr>
+                <tr>
+                    <td><span class="hosp-name">香港浸信會醫院</span><a href="https://www.hkbh.org.hk/..." target="_blank" class="btn">官網</a></td>
+                    <td colspan="2" style="color:#999; font-size:0.8rem">24小時門診</td>
+                    <td class="wait-time" onclick="editTime(this)">約 2 小時 <span class="edit-icon">✎</span></td>
+                </tr>
+                <tr>
+                    <td><span class="hosp-name">仁安醫院 (大圍)</span><a href="https://www.union.org/..." target="_blank" class="btn">官網</a><br><small style="color:#999">計算: 處理病人時間 - 現在</small></td>
+                    <td colspan="2" style="color:#999; font-size:0.8rem">24小時門診</td>
+                    <td class="wait-time" onclick="editTime(this)">約 1.5 小時 <span class="edit-icon">✎</span></td>
                 </tr>
             </tbody>
 
-            <tbody id="govBody">
-                <tr class="cat-row"><td colspan="4" class="gov-cat">🏛️ 公立醫院 (實時同步醫管局數據)</td></tr>
-                <tr><td colspan="4" style="text-align:center;">數據同步中...</td></tr>
+            <tbody id="gov-list">
+                <tr class="cat-head"><td colspan="4" class="gov-text">🏛️ 公立醫院 (實時同步全港18間)</td></tr>
+                <tr><td colspan="4" style="text-align:center; padding:20px;">數據抓取中...</td></tr>
             </tbody>
         </table>
     </div>
 </div>
 
 <script>
-    // 醫管局實時數據抓取 (加入防止緩存的隨機參數)
-    const HA_URL = "https://api.allorigins.win/raw?url=" + encodeURIComponent("https://www.ha.org.hk/opendata/aewaitingtime/aewaitingtime-tc.json?v=" + new Date().getTime());
+    // 解決 CORS 阻擋的代理地址 + 醫管局 JSON (加上時間戳防止緩存)
+    const HA_URL = "https://api.allorigins.win/raw?url=" + encodeURIComponent("https://www.ha.org.hk/opendata/aewaitingtime/aewaitingtime-tc.json?t=" + Date.now());
 
-    async function fetchHAData() {
-        const govBody = document.getElementById('govBody');
-        const status = document.getElementById('globalStatus');
-
+    async function updateHAData() {
         try {
             const response = await fetch(HA_URL);
-            if (!response.ok) throw new Error();
             const data = await response.json();
+            const list = document.getElementById('gov-list');
             
-            status.innerText = `最後同步成功：${new Date().toLocaleTimeString()}`;
-            renderGovTable(data.waitTime, data.updateTime);
-        } catch (e) {
-            status.innerText = "❌ 實時同步失敗，請刷新頁面。";
-        }
-    }
-
-    function renderGovTable(hospitals, commonTime) {
-        const govBody = document.getElementById('govBody');
-        // 先保留標題行
-        govBody.innerHTML = '<tr class="cat-row"><td colspan="4" class="gov-cat">🏛️ 公立醫院 (實時同步醫管局數據)</td></tr>';
-
-        hospitals.forEach(h => {
-            const isRescue = h.t1wt.includes("搶救");
-            const isLong = parseFloat(h.t45p95) >= 6;
+            // 保留標題，清空舊數據
+            list.innerHTML = '<tr class="cat-head"><td colspan="4" class="gov-text">🏛️ 公立醫院 (實時同步全港18間)</td></tr>';
             
-            const row = `
-                <tr>
-                    <td>
-                        <div class="hosp-info">
+            data.waitTime.forEach(h => {
+                const isRescue = h.t1wt.includes("搶救");
+                const isWarning = parseFloat(h.t45p95) >= 6;
+                
+                const row = `
+                    <tr>
+                        <td>
                             <span class="hosp-name">${h.hospName}</span>
-                            <span class="hosp-time">數據更新：${commonTime}</span>
-                        </div>
-                    </td>
-                    <td class="${isRescue ? 'rescue' : ''}">${h.t1wt}</td>
-                    <td>${h.t3p50}</td>
-                    <td class="wait-time ${isLong ? 'warning' : ''}">${h.t45p95}</td>
-                </tr>
-            `;
-            govBody.innerHTML += row;
-        });
-    }
-
-    // 私家醫院手動更新功能
-    function updatePrivate(id) {
-        const newVal = prompt("請輸入該醫院目前的等候時間 (例如: 2.5 小時):");
-        if (newVal) {
-            document.getElementById(`${id}-val`).innerText = newVal + " ✎";
-            document.getElementById(`${id}-upd`).innerText = "最後手動更新: " + new Date().toLocaleTimeString();
+                            <span class="hosp-upd">更新：${data.updateTime}</span>
+                        </td>
+                        <td class="${isRescue ? 'rescue' : ''}">${h.t1wt}</td>
+                        <td>${h.t3p50}</td>
+                        <td class="wait-time ${isWarning ? 'warning' : ''}">${h.t45p95}</td>
+                    </tr>
+                `;
+                list.innerHTML += row;
+            });
+            document.getElementById('loadStatus').innerText = "✅ 已成功抓取最新實時數據";
+        } catch (e) {
+            document.getElementById('loadStatus').innerText = "❌ 自動同步失敗，請手動刷新頁面";
         }
     }
 
-    // 初始化
-    fetchHAData();
-    // 每 5 分鐘自動重新抓取公立醫院數據
-    setInterval(fetchHAData, 300000);
+    function editTime(el) {
+        const val = prompt("請輸入最新輪候時間：", el.innerText.replace(' ✎', ''));
+        if (val) el.innerHTML = val + ' <span class="edit-icon">✎</span>';
+    }
+
+    // 啟動抓取
+    updateHAData();
+    // 每 10 分鐘自動刷新一次
+    setInterval(updateHAData, 600000);
 </script>
 
 </body>
