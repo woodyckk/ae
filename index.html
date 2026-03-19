@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>香港急症室及私家門診輪候時間</title>
+    <style>
+        :root { 
+            --primary: #2c3e50; 
+            --accent: #e74c3c; 
+            --private: #8e44ad; 
+            --bg: #f8f9fa; 
+            --shadow: 0 10px 30px rgba(0,0,0,0.08);
+        }
+        body { 
+            font-family: "Microsoft JhengHei", "Heiti TC", sans-serif; 
+            background: var(--bg); 
+            margin: 0; 
+            padding: 20px 15px; 
+        }
+        .dashboard { 
+            max-width: 1000px; 
+            margin: auto; 
+            background: white; 
+            padding: 30px; 
+            border-radius: 20px; 
+            box-shadow: var(--shadow); 
+        }
+        header { text-align: center; margin-bottom: 30px; }
+        h1 { color: var(--primary); margin: 0; font-size: 1.8rem; }
+        .source-tag {
+            display: inline-block;
+            background: #e8f4fd;
+            color: #2980b9;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            margin-top: 10px;
+        }
+        .update-info { text-align: right; font-size: 0.9rem; color: #888; margin-bottom: 15px; }
+        
+        .table-container { overflow-x: auto; border-radius: 12px; border: 1px solid #eee; }
+        table { width: 100%; border-collapse: collapse; min-width: 850px; }
+        
+        .category-header {
+            background: #fdfdfd;
+            font-weight: bold;
+            padding: 15px;
+            border-bottom: 2px solid #eee;
+        }
+        .private-header { color: var(--private); border-left: 5px solid var(--private); }
+        .gov-header { color: var(--primary); border-left: 5px solid var(--primary); }
+
+        th { background: #fafafa; color: #666; padding: 15px; text-align: left; font-size: 0.9rem; border-bottom: 1px solid #eee; }
+        td { padding: 15px; border-bottom: 1px solid #f5f5f5; font-size: 1rem; color: #333; }
+        
+        .hosp-name { font-weight: 600; }
+        .rescue { color: #d35400; font-weight: bold; background: #fff5eb; padding: 6px 10px; border-radius: 6px; }
+        .warning { color: var(--accent); font-weight: bold; }
+        .private-row { background-color: #fdfaff; }
+        .private-time { color: var(--private); font-weight: bold; font-size: 1.1rem; }
+        
+        .link-btn { font-size: 0.75rem; color: var(--private); text-decoration: none; border: 1px solid var(--private); padding: 3px 8px; border-radius: 6px; }
+        .link-btn:hover { background: var(--private); color: white; }
+        .note { font-size: 0.8rem; color: #777; margin-top: 4px; display: block; line-height: 1.2; }
+    </style>
+</head>
+<body>
+
+    <div class="dashboard">
+        <header>
+            <h1>🏥 醫療機構輪候時間 Dashboard</h1>
+            <div class="source-tag">數據源：公立醫院 (HA) 及 各大私家醫院官網</div>
+        </header>
+        
+        <p id="updateTime" class="update-info">載入中...</p>
+        
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 30%;">醫院名稱</th>
+                        <th style="width: 20%;">第一類 / 預計處理</th>
+                        <th style="width: 20%;">第三類 (次緊急)</th>
+                        <th style="width: 30%;">第四/五類 (非緊急 / 私家比較)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td colspan="4" class="category-header private-header">🌟 私家醫院 (24小時門診 / 急症)</td>
+                    </tr>
+                    <tr class="private-row">
+                        <td class="hosp-name">養和醫院 (跑馬地)</td>
+                        <td colspan="2"><a href="https://patser.hksh.com/fmcwaitingtime?lang=zh" target="_blank" class="link-btn">官網連結</a></td>
+                        <td class="private-time">約 1.5 小時</td>
+                    </tr>
+                    <tr class="private-row">
+                        <td class="hosp-name">港怡醫院 (黃竹坑)</td>
+                        <td colspan="2"><a href="https://gleneagles.hk/tc/facilities-services/explore-facilities-and-services/general-facilities/24-hour-outpatient-and-emergency" target="_blank" class="link-btn">官網連結</a></td>
+                        <td class="private-time">約 1 小時</td>
+                    </tr>
+                    <tr class="private-row">
+                        <td class="hosp-name">香港浸信會醫院 (九龍塘)</td>
+                        <td colspan="2"><a href="https://www.hkbh.org.hk/24-opd-service/" target="_blank" class="link-btn">官網連結</a></td>
+                        <td class="private-time">約 2 小時</td>
+                    </tr>
+                    <tr class="private-row">
+                        <td class="hosp-name">
+                            仁安醫院 (大圍)
+                            <span class="note">註：等候時間 = 處理病人時間 - 現在時間</span>
+                        </td>
+                        <td colspan="2"><a href="https://www.union.org/tc/" target="_blank" class="link-btn">官網連結</a></td>
+                        <td class="private-time">約 1.5 小時</td>
+                    </tr>
+
+                    <tr>
+                        <td colspan="4" class="category-header gov-header">🏛️ 公立醫院 (急症室)</td>
+                    </tr>
+                </tbody>
+                <tbody id="govHospitalData">
+                    </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const fullGovData = {
+            "updateTime": "2026年3月18日 下午4時30分",
+            "waitTime": [
+                {"hospName":"雅麗氏何妙齡那打素醫院", "t1wt":"0 分鐘", "t3p50":"28 分鐘", "t45p95":"5 小時"},
+                {"hospName":"明愛醫院", "t1wt":"0 分鐘", "t3p50":"17 分鐘", "t45p95":"4.5 小時"},
+                {"hospName":"廣華醫院", "t1wt":"0 分鐘", "t3p50":"13 分鐘", "t45p95":"5 小時"},
+                {"hospName":"北區醫院", "t1wt":"多名病人正在搶救中", "t3p50":"25 分鐘", "t45p95":"7 小時"},
+                {"hospName":"東區尤德夫人那打素醫院", "t1wt":"0 分鐘", "t3p50":"17 分鐘", "t45p95":"6.5 小時"},
+                {"hospName":"威爾斯親王醫院", "t1wt":"0 分鐘", "t3p50":"23 分鐘", "t45p95":"13.5 小時"},
+                {"hospName":"伊利沙伯醫院", "t1wt":"0 分鐘", "t3p50":"9 分鐘", "t45p95":"2.5 小時"},
+                {"hospName":"屯門醫院", "t1wt":"0 分鐘", "t3p50":"16 分鐘", "t45p95":"9.5 小時"},
+                {"hospName":"仁濟醫院", "t1wt":"0 分鐘", "t3p50":"24 分鐘", "t45p95":"7 小時"}
+            ]
+        };
+
+        function renderTable(data) {
+            const tbody = document.getElementById('govHospitalData');
+            document.getElementById('updateTime').innerText = `數據更新時間：${data.updateTime}`;
+            
+            tbody.innerHTML = ""; 
+
+            data.waitTime.forEach(hosp => {
+                const row = document.createElement('tr');
+                const isRescue = hosp.t1wt.includes("搶救");
+                const waitTimeNum = parseFloat(hosp.t45p95);
+                const isVeryLong = waitTimeNum >= 6; 
+
+                row.innerHTML = `
+                    <td class="hosp-name">${hosp.hospName}</td>
+                    <td class="${isRescue ? 'rescue' : ''}">${hosp.t1wt}</td>
+                    <td>${hosp.t3p50}</td>
+                    <td class="${isVeryLong ? 'warning' : ''}">${hosp.t45p95}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        renderTable(fullGovData);
+    </script>
+</body>
+</html>
