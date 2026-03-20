@@ -8,7 +8,7 @@
         body { font-family: -apple-system, system-ui, sans-serif; background-color: #f4f7f6; margin: 0; padding: 15px; }
         .container { max-width: 650px; margin: auto; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
         h1 { text-align: center; color: #003087; font-size: 22px; margin-bottom: 15px; }
-        .status-bar { text-align: center; font-size: 13px; padding: 12px; margin-bottom: 20px; border-radius: 8px; font-weight: bold; transition: 0.3s; }
+        .status-bar { text-align: center; font-size: 13px; padding: 12px; margin-bottom: 20px; border-radius: 8px; font-weight: bold; }
         .loading { background: #fff3cd; color: #856404; }
         .success { background: #d4edda; color: #155724; }
         .error { background: #f8d7da; color: #721c24; }
@@ -24,7 +24,7 @@
 
 <div class="container">
     <h1>🏛️ 公立醫院急症室輪候實時</h1>
-    <div id="status" class="status-bar loading">🔄 正在連線政府資料一線通 (CKAN API)...</div>
+    <div id="status" class="status-bar loading">🔄 正在透過官方 API 獲取實時數據...</div>
 
     <table>
         <thead>
@@ -45,7 +45,7 @@
         // 醫管局官方 JSON 路徑
         const HA_URL = "https://www.ha.org.hk/opendata/aewaitingtime/aewaitingtime-tc.json";
         
-        // 多重中轉站備援，解決單一中轉繁忙問題
+        // 三層備援中轉站，解決單一 Proxy 繁忙問題
         const proxies = [
             `https://api.allorigins.win/get?url=${encodeURIComponent(HA_URL)}`,
             `https://corsproxy.io/?${encodeURIComponent(HA_URL)}`,
@@ -64,15 +64,15 @@
 
                 if (data && data.waitTime) {
                     renderTable(data);
-                    statusEl.innerText = "✅ 數據已透過官方 API 實時同步";
+                    statusEl.innerText = "✅ 數據已成功對接政府 API";
                     statusEl.className = "status-bar success";
                     return; 
                 }
             } catch (err) {
-                console.warn("目前路徑連線超時，嘗試切換備用中轉...");
+                console.warn("目前路徑失效，嘗試備用方案...");
             }
         }
-        statusEl.innerText = "❌ 醫管局伺服器回應超時，請按【重新整理】";
+        statusEl.innerText = "❌ 醫管局伺服器連線超時，請按重新整理。";
         statusEl.className = "status-bar error";
     }
 
