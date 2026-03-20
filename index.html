@@ -1,99 +1,14 @@
-<!DOCTYPE html>
-<html lang="zh-HK">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>全港醫院輪候實時 Dashboard</title>
-    <style>
-        body { font-family: -apple-system, system-ui, sans-serif; background: #f4f7f6; padding: 15px; margin: 0; }
-        .container { max-width: 650px; margin: auto; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
-        h1 { text-align: center; color: #003087; font-size: 20px; margin-bottom: 20px; }
-        .section-header { background: #f8f9fa; padding: 10px 15px; font-weight: bold; color: #555; border-radius: 8px; margin: 20px 0 10px; border-left: 5px solid #003087; }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { padding: 15px 10px; text-align: left; border-bottom: 1px solid #eee; }
-        .hosp-name { font-weight: bold; color: #333; display: block; }
-        .wait-time { font-size: 20px; font-weight: 800; color: #d9480f; }
-        .tag { font-size: 11px; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
-        .tag-pri { background: #e3f2fd; color: #0d47a1; }
-        .tag-pub { background: #e8f5e9; color: #1b5e20; }
-        .status-small { font-size: 11px; color: #999; margin-top: 4px; display: block; }
-        #status-msg { text-align: center; font-size: 13px; color: #d9480f; padding: 10px; }
-    </style>
-</head>
-<body>
-
-<div class="container">
-    <h1>🏥 全港醫院輪候實時 Dashboard</h1>
-
-    <div class="section-header">🌟 私家醫院 (實時計算)</div>
-    <table>
-        <tbody>
-            <tr>
-                <td>
-                    <span class="hosp-name">仁安醫院 (大圍)</span>
-                    <span id="union-ref" class="status-small">正在連線官網...</span>
-                </td>
-                <td><span class="tag tag-pri">私家實時</span></td>
-                <td><span id="union-wait" class="wait-time">--</span></td>
-            </tr>
-        </tbody>
-    </table>
-
-    <div class="section-header">🏛️ 公立醫院 (透過 Cloudflare Worker)</div>
-    <div id="status-msg">🔄 正在透過專屬 Worker 同步數據...</div>
-    <table>
-        <tbody id="pub-list">
-            </tbody>
-    </table>
-</div>
-
-<script>
-    // 請確保呢個網址同你 Cloudflare 嗰個一樣
-    const WORKER_URL = "https://twilight-hall-1841.woodyckk.workers.dev/";
-
-    // 1. 仁安醫院即時邏輯
-    async function fetchUnion() {
-        try {
-            const res = await fetch(WORKER_URL + "?type=union&url=https://www.union.org/tc/");
-            const raw = await res.json();
-            // 注意：如果 Worker 未支援 Union，呢度可能會報錯，暫時先攞公立數據
-        } catch (e) {
-            document.getElementById('union-wait').innerText = "連線中";
+// 搵返 index.html 裡面 fetch 嗰段，改做咁樣：
+async function fetchPublic() {
+    try {
+        // 直接連去你個新 Worker
+        const response = await fetch("https://twilight-hall-1841.woodyckk.workers.dev/");
+        const data = await response.json();
+        
+        if (data && data.waitTime) {
+            renderTable(data); // 顯示公立醫院名單
         }
+    } catch (error) {
+        console.error("連線失敗:", error);
     }
-
-    // 2. 公立醫院對接邏輯
-    async function fetchPublic() {
-        const statusEl = document.getElementById('status-msg');
-        const listEl = document.getElementById('pub-list');
-
-        try {
-            const response = await fetch(WORKER_URL);
-            const data = await response.json();
-
-            if (data && data.waitTime) {
-                statusEl.style.display = 'none';
-                listEl.innerHTML = data.waitTime.map(h => `
-                    <tr>
-                        <td>
-                            <span class="hosp-name">${h.hospName}</span>
-                            <span class="status-small">數據更新: ${data.updateTime}</span>
-                        </td>
-                        <td><span class="tag tag-pub">公立</span></td>
-                        <td><span class="wait-time">${h.topWait}</span></td>
-                    </tr>
-                `).join('');
-            }
-        } catch (error) {
-            statusEl.innerText = "❌ Worker 連線失敗，請檢查 Cloudflare 狀態。";
-            console.error(error);
-        }
-    }
-
-    window.onload = () => {
-        fetchPublic();
-        // 如果想仁安都行得通，Worker 嗰邊代碼要再改少少，我哋宜家先確保公立醫院行得通！
-    };
-</script>
-</body>
-</html>
+}
