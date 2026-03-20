@@ -1,48 +1,97 @@
-async function loadPublicData() {
-    const statusEl = document.getElementById('status');
-    const listEl = document.getElementById('hosp-list');
-    const HA_URL = "https://www.ha.org.hk/opendata/aewaitingtime/aewaitingtime-tc.json";
-    
-    // 定義三個不同的中轉站，增加穩定性
-    const proxies = [
-        `https://api.allorigins.win/get?url=${encodeURIComponent(HA_URL)}`,
-        `https://corsproxy.io/?${encodeURIComponent(HA_URL)}`,
-        `https://thingproxy.freeboard.io/fetch/${HA_URL}`
-    ];
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>公立醫院輪候實時 Dashboard</title>
+    <style>
+        body { font-family: -apple-system, system-ui, sans-serif; background-color: #f4f7f6; margin: 0; padding: 15px; }
+        .container { max-width: 650px; margin: auto; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
+        h1 { text-align: center; color: #003087; font-size: 22px; margin-bottom: 15px; }
+        .status-bar { text-align: center; font-size: 13px; padding: 12px; margin-bottom: 20px; border-radius: 8px; font-weight: bold; transition: 0.3s; }
+        .loading { background: #fff3cd; color: #856404; }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 14px 10px; text-align: left; border-bottom: 1px solid #eee; }
+        th { font-size: 12px; color: #7f8c8d; text-transform: uppercase; background: #fafafa; }
+        .hosp-name { font-weight: bold; color: #34495e; display: block; }
+        .wait-time { font-size: 18px; font-weight: 800; color: #d9480f; }
+        .update-time { font-size: 11px; color: #95a5a6; }
+    </style>
+</head>
+<body>
 
-    for (let url of proxies) {
-        try {
-            console.log("嘗試連線路徑:", url);
-            const response = await fetch(url);
-            if (!response.ok) continue; // 如果失敗，嘗試下一個
+<div class="container">
+    <h1>🏛️ 公立醫院急症室輪候實時</h1>
+    <div id="status" class="status-bar loading">🔄 正在連線政府資料一線通 (CKAN API)...</div>
 
-            const rawData = await response.json();
-            // 處理 AllOrigins 格式 (數據在 .contents) 或 其他直接回傳 JSON 嘅格式
-            const dataStr = rawData.contents ? rawData.contents : JSON.stringify(rawData);
-            const data = typeof dataStr === 'string' ? JSON.parse(dataStr) : dataStr;
+    <table>
+        <thead>
+            <tr>
+                <th>醫院名稱 (及數據時間)</th>
+                <th>預計等候時間</th>
+            </tr>
+        </thead>
+        <tbody id="hosp-list">
+            </tbody>
+    </table>
+</div>
 
-            if (data && data.waitTime) {
-                renderTable(data);
-                statusEl.innerText = "✅ 數據已透過備用路徑同步成功";
-                statusEl.className = "status-bar success";
-                return; // 成功後跳出循環
+<script>
+    async function loadPublicData() {
+        const statusEl = document.getElementById('status');
+        const listEl = document.getElementById('hosp-list');
+        // 醫管局官方 JSON 路徑
+        const HA_URL = "https://www.ha.org.hk/opendata/aewaitingtime/aewaitingtime-tc.json";
+        
+        // 多重中轉站備援，解決單一中轉繁忙問題
+        const proxies = [
+            `https://api.allorigins.win/get?url=${encodeURIComponent(HA_URL)}`,
+            `https://corsproxy.io/?${encodeURIComponent(HA_URL)}`,
+            `https://thingproxy.freeboard.io/fetch/${HA_URL}`
+        ];
+
+        for (let url of proxies) {
+            try {
+                const response = await fetch(url);
+                if (!response.ok) continue;
+
+                const rawData = await response.json();
+                // 兼容不同中轉站的回傳格式
+                const dataStr = rawData.contents ? rawData.contents : (typeof rawData === 'string' ? rawData : JSON.stringify(rawData));
+                const data = typeof dataStr === 'string' ? JSON.parse(dataStr) : dataStr;
+
+                if (data && data.waitTime) {
+                    renderTable(data);
+                    statusEl.innerText = "✅ 數據已透過官方 API 實時同步";
+                    statusEl.className = "status-bar success";
+                    return; 
+                }
+            } catch (err) {
+                console.warn("目前路徑連線超時，嘗試切換備用中轉...");
             }
-        } catch (err) {
-            console.warn("目前路徑失效，切換中...");
         }
+        statusEl.innerText = "❌ 醫管局伺服器回應超時，請按【重新整理】";
+        statusEl.className = "status-bar error";
     }
-    statusEl.innerText = "⚠️ 所有 API 連線繁忙，請幾秒後重整。";
-    statusEl.className = "status-bar error";
-}
 
-function renderTable(data) {
-    const listEl = document.getElementById('hosp-list');
-    listEl.innerHTML = "";
-    data.waitTime.forEach(h => {
-        const row = `<tr>
-            <td><span class="hosp-name">${h.hospName}</span><span class="update-tag">最後更新: ${data.updateTime}</span></td>
-            <td><span class="wait-time">${h.topWait}</span></td>
-        </tr>`;
-        listEl.innerHTML += row;
-    });
-}
+    function renderTable(data) {
+        const listEl = document.getElementById('hosp-list');
+        listEl.innerHTML = "";
+        data.waitTime.forEach(h => {
+            const row = `<tr>
+                <td>
+                    <span class="hosp-name">${h.hospName}</span>
+                    <span class="update-time">更新: ${data.updateTime}</span>
+                </td>
+                <td><span class="wait-time">${h.topWait}</span></td>
+            </tr>`;
+            listEl.innerHTML += row;
+        });
+    }
+
+    window.onload = loadPublicData;
+</script>
+</body>
+</html>
