@@ -3,95 +3,110 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>公立醫院輪候實時 Dashboard</title>
+    <title>醫院輪候實時 Dashboard</title>
     <style>
-        body { font-family: -apple-system, system-ui, sans-serif; background-color: #f4f7f6; margin: 0; padding: 15px; }
+        body { font-family: -apple-system, system-ui, sans-serif; background: #f4f7f6; padding: 15px; }
         .container { max-width: 650px; margin: auto; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
-        h1 { text-align: center; color: #003087; font-size: 22px; margin-bottom: 15px; }
-        .status-bar { text-align: center; font-size: 13px; padding: 12px; margin-bottom: 20px; border-radius: 8px; font-weight: bold; }
-        .loading { background: #fff3cd; color: #856404; }
-        .success { background: #d4edda; color: #155724; }
-        .error { background: #f8d7da; color: #721c24; }
+        h1 { text-align: center; color: #003087; font-size: 20px; }
+        .section-header { background: #f8f9fa; padding: 8px 12px; font-weight: bold; color: #555; border-radius: 5px; margin: 15px 0 10px; }
         table { width: 100%; border-collapse: collapse; }
-        th, td { padding: 14px 10px; text-align: left; border-bottom: 1px solid #eee; }
-        th { font-size: 12px; color: #7f8c8d; text-transform: uppercase; background: #fafafa; }
-        .hosp-name { font-weight: bold; color: #34495e; display: block; }
+        th, td { padding: 12px 10px; text-align: left; border-bottom: 1px solid #eee; }
+        .hosp-name { font-weight: bold; color: #333; }
         .wait-time { font-size: 18px; font-weight: 800; color: #d9480f; }
-        .update-time { font-size: 11px; color: #95a5a6; }
+        .tag-pri { background: #e3f2fd; color: #0d47a1; padding: 2px 6px; border-radius: 4px; font-size: 11px; }
+        .tag-pub { background: #e8f5e9; color: #1b5e20; padding: 2px 6px; border-radius: 4px; font-size: 11px; }
+        .status-small { font-size: 11px; color: #999; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>🏛️ 公立醫院急症室輪候實時</h1>
-    <div id="status" class="status-bar loading">🔄 正在透過官方 API 獲取實時數據...</div>
+    <h1>🏥 醫院輪候實時 Dashboard</h1>
 
+    <div class="section-header">🌟 私家醫院 (由瀏覽器即時計算)</div>
     <table>
-        <thead>
+        <tbody id="pri-list">
             <tr>
-                <th>醫院名稱 (及數據時間)</th>
-                <th>預計等候時間</th>
+                <td>
+                    <span class="hosp-name">仁安醫院 (大圍)</span><br>
+                    <span id="union-ref" class="status-small">正在讀取官網處理時間...</span>
+                </td>
+                <td><span class="tag-pri">私家實時</span></td>
+                <td><span id="union-wait" class="wait-time">--</span></td>
             </tr>
-        </thead>
-        <tbody id="hosp-list">
+        </tbody>
+    </table>
+
+    <div class="section-header">🏛️ 公立醫院 (政府 CKAN API 源)</div>
+    <div id="pub-status" style="font-size: 12px; text-align: center; padding: 10px; color: #d9480f;">🔄 正在嘗試突破防火牆連線中...</div>
+    <table>
+        <tbody id="pub-list">
             </tbody>
     </table>
 </div>
 
 <script>
-    async function loadPublicData() {
-        const statusEl = document.getElementById('status');
-        const listEl = document.getElementById('hosp-list');
-        // 醫管局官方 JSON 路徑
+    const PROXY = "https://api.allorigins.win/get?url=";
+
+    // 1. 仁安醫院專屬邏輯：處理時間 vs 當前時間
+    async function fetchUnion() {
+        const url = "https://www.union.org/tc/";
+        try {
+            const res = await fetch(PROXY + encodeURIComponent(url));
+            const raw = await res.json();
+            const timeMatch = raw.contents.match(/(\d{2}:\d{2})/); // 搵出官網顯示嘅 00:27 呢類時間
+            
+            if (timeMatch) {
+                const pTime = timeMatch[1];
+                const [pHours, pMinutes] = pTime.split(':').map(Number);
+                const now = new Date();
+                const pDate = new Date();
+                pDate.setHours(pHours, pMinutes, 0);
+
+                let diff = Math.floor((now - pDate) / 1000 / 60); // 計算分鐘差
+                if (diff < 0) diff += 1440; // 處理過咗午夜嘅情況
+
+                document.getElementById('union-wait').innerText = `約 ${diff + 15} 分鐘`;
+                document.getElementById('union-ref').innerText = `官網處理至: ${pTime} (已延後 ${diff} 分鐘)`;
+            }
+        } catch (e) { document.getElementById('union-wait').innerText = "連線繁忙"; }
+    }
+
+    // 2. 公立醫院 CKAN API 邏輯
+    async function fetchPublic() {
         const HA_URL = "https://www.ha.org.hk/opendata/aewaitingtime/aewaitingtime-tc.json";
-        
-        // 三層備援中轉站，解決單一 Proxy 繁忙問題
         const proxies = [
             `https://api.allorigins.win/get?url=${encodeURIComponent(HA_URL)}`,
-            `https://corsproxy.io/?${encodeURIComponent(HA_URL)}`,
-            `https://thingproxy.freeboard.io/fetch/${HA_URL}`
+            `https://corsproxy.io/?${encodeURIComponent(HA_URL)}`
         ];
 
-        for (let url of proxies) {
+        for (let p of proxies) {
             try {
-                const response = await fetch(url);
-                if (!response.ok) continue;
-
-                const rawData = await response.json();
-                // 兼容不同中轉站的回傳格式
-                const dataStr = rawData.contents ? rawData.contents : (typeof rawData === 'string' ? rawData : JSON.stringify(rawData));
-                const data = typeof dataStr === 'string' ? JSON.parse(dataStr) : dataStr;
-
+                const res = await fetch(p);
+                const raw = await res.json();
+                const data = JSON.parse(raw.contents || JSON.stringify(raw));
+                
                 if (data && data.waitTime) {
-                    renderTable(data);
-                    statusEl.innerText = "✅ 數據已成功對接政府 API";
-                    statusEl.className = "status-bar success";
-                    return; 
+                    document.getElementById('pub-status').style.display = 'none';
+                    const list = document.getElementById('pub-list');
+                    list.innerHTML = data.waitTime.map(h => `
+                        <tr>
+                            <td><span class="hosp-name">${h.hospName}</span><br><span class="status-small">更新: ${data.updateTime}</span></td>
+                            <td><span class="tag-pub">公立</span></td>
+                            <td><span class="wait-time">${h.topWait}</span></td>
+                        </tr>
+                    `).join('');
+                    return;
                 }
-            } catch (err) {
-                console.warn("目前路徑失效，嘗試備用方案...");
-            }
+            } catch (e) { continue; }
         }
-        statusEl.innerText = "❌ 醫管局伺服器連線超時，請按重新整理。";
-        statusEl.className = "status-bar error";
+        document.getElementById('pub-status').innerText = "❌ 公立醫院 API 暫時連線失敗，請稍後重整";
     }
 
-    function renderTable(data) {
-        const listEl = document.getElementById('hosp-list');
-        listEl.innerHTML = "";
-        data.waitTime.forEach(h => {
-            const row = `<tr>
-                <td>
-                    <span class="hosp-name">${h.hospName}</span>
-                    <span class="update-time">更新: ${data.updateTime}</span>
-                </td>
-                <td><span class="wait-time">${h.topWait}</span></td>
-            </tr>`;
-            listEl.innerHTML += row;
-        });
-    }
-
-    window.onload = loadPublicData;
+    window.onload = () => {
+        fetchUnion();
+        fetchPublic();
+    };
 </script>
 </body>
 </html>
