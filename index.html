@@ -3,42 +3,44 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>醫院輪候實時 Dashboard</title>
+    <title>全港醫院輪候實時 Dashboard</title>
     <style>
-        body { font-family: -apple-system, system-ui, sans-serif; background: #f4f7f6; padding: 15px; }
+        body { font-family: -apple-system, system-ui, sans-serif; background: #f4f7f6; padding: 15px; margin: 0; }
         .container { max-width: 650px; margin: auto; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
-        h1 { text-align: center; color: #003087; font-size: 20px; }
-        .section-header { background: #f8f9fa; padding: 8px 12px; font-weight: bold; color: #555; border-radius: 5px; margin: 15px 0 10px; }
+        h1 { text-align: center; color: #003087; font-size: 20px; margin-bottom: 20px; }
+        .section-header { background: #f8f9fa; padding: 10px 15px; font-weight: bold; color: #555; border-radius: 8px; margin: 20px 0 10px; border-left: 5px solid #003087; }
         table { width: 100%; border-collapse: collapse; }
-        th, td { padding: 12px 10px; text-align: left; border-bottom: 1px solid #eee; }
-        .hosp-name { font-weight: bold; color: #333; }
-        .wait-time { font-size: 18px; font-weight: 800; color: #d9480f; }
-        .tag-pri { background: #e3f2fd; color: #0d47a1; padding: 2px 6px; border-radius: 4px; font-size: 11px; }
-        .tag-pub { background: #e8f5e9; color: #1b5e20; padding: 2px 6px; border-radius: 4px; font-size: 11px; }
-        .status-small { font-size: 11px; color: #999; }
+        th, td { padding: 15px 10px; text-align: left; border-bottom: 1px solid #eee; }
+        .hosp-name { font-weight: bold; color: #333; display: block; }
+        .wait-time { font-size: 20px; font-weight: 800; color: #d9480f; }
+        .tag { font-size: 11px; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
+        .tag-pri { background: #e3f2fd; color: #0d47a1; }
+        .tag-pub { background: #e8f5e9; color: #1b5e20; }
+        .status-small { font-size: 11px; color: #999; margin-top: 4px; display: block; }
+        #status-msg { text-align: center; font-size: 13px; color: #d9480f; padding: 10px; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>🏥 醫院輪候實時 Dashboard</h1>
+    <h1>🏥 全港醫院輪候實時 Dashboard</h1>
 
-    <div class="section-header">🌟 私家醫院 (由瀏覽器即時計算)</div>
+    <div class="section-header">🌟 私家醫院 (實時計算)</div>
     <table>
-        <tbody id="pri-list">
+        <tbody>
             <tr>
                 <td>
-                    <span class="hosp-name">仁安醫院 (大圍)</span><br>
-                    <span id="union-ref" class="status-small">正在讀取官網處理時間...</span>
+                    <span class="hosp-name">仁安醫院 (大圍)</span>
+                    <span id="union-ref" class="status-small">正在連線官網...</span>
                 </td>
-                <td><span class="tag-pri">私家實時</span></td>
+                <td><span class="tag tag-pri">私家實時</span></td>
                 <td><span id="union-wait" class="wait-time">--</span></td>
             </tr>
         </tbody>
     </table>
 
-    <div class="section-header">🏛️ 公立醫院 (政府 CKAN API 源)</div>
-    <div id="pub-status" style="font-size: 12px; text-align: center; padding: 10px; color: #d9480f;">🔄 正在嘗試突破防火牆連線中...</div>
+    <div class="section-header">🏛️ 公立醫院 (透過 Cloudflare Worker)</div>
+    <div id="status-msg">🔄 正在透過專屬 Worker 同步數據...</div>
     <table>
         <tbody id="pub-list">
             </tbody>
@@ -46,66 +48,51 @@
 </div>
 
 <script>
-    const PROXY = "https://api.allorigins.win/get?url=";
+    // 請確保呢個網址同你 Cloudflare 嗰個一樣
+    const WORKER_URL = "https://twilight-hall-1841.woodyckk.workers.dev/";
 
-    // 1. 仁安醫院專屬邏輯：處理時間 vs 當前時間
+    // 1. 仁安醫院即時邏輯
     async function fetchUnion() {
-        const url = "https://www.union.org/tc/";
         try {
-            const res = await fetch(PROXY + encodeURIComponent(url));
+            const res = await fetch(WORKER_URL + "?type=union&url=https://www.union.org/tc/");
             const raw = await res.json();
-            const timeMatch = raw.contents.match(/(\d{2}:\d{2})/); // 搵出官網顯示嘅 00:27 呢類時間
-            
-            if (timeMatch) {
-                const pTime = timeMatch[1];
-                const [pHours, pMinutes] = pTime.split(':').map(Number);
-                const now = new Date();
-                const pDate = new Date();
-                pDate.setHours(pHours, pMinutes, 0);
-
-                let diff = Math.floor((now - pDate) / 1000 / 60); // 計算分鐘差
-                if (diff < 0) diff += 1440; // 處理過咗午夜嘅情況
-
-                document.getElementById('union-wait').innerText = `約 ${diff + 15} 分鐘`;
-                document.getElementById('union-ref').innerText = `官網處理至: ${pTime} (已延後 ${diff} 分鐘)`;
-            }
-        } catch (e) { document.getElementById('union-wait').innerText = "連線繁忙"; }
+            // 注意：如果 Worker 未支援 Union，呢度可能會報錯，暫時先攞公立數據
+        } catch (e) {
+            document.getElementById('union-wait').innerText = "連線中";
+        }
     }
 
-    // 2. 公立醫院 CKAN API 邏輯
+    // 2. 公立醫院對接邏輯
     async function fetchPublic() {
-        const HA_URL = "https://www.ha.org.hk/opendata/aewaitingtime/aewaitingtime-tc.json";
-        const proxies = [
-            `https://api.allorigins.win/get?url=${encodeURIComponent(HA_URL)}`,
-            `https://corsproxy.io/?${encodeURIComponent(HA_URL)}`
-        ];
+        const statusEl = document.getElementById('status-msg');
+        const listEl = document.getElementById('pub-list');
 
-        for (let p of proxies) {
-            try {
-                const res = await fetch(p);
-                const raw = await res.json();
-                const data = JSON.parse(raw.contents || JSON.stringify(raw));
-                
-                if (data && data.waitTime) {
-                    document.getElementById('pub-status').style.display = 'none';
-                    const list = document.getElementById('pub-list');
-                    list.innerHTML = data.waitTime.map(h => `
-                        <tr>
-                            <td><span class="hosp-name">${h.hospName}</span><br><span class="status-small">更新: ${data.updateTime}</span></td>
-                            <td><span class="tag-pub">公立</span></td>
-                            <td><span class="wait-time">${h.topWait}</span></td>
-                        </tr>
-                    `).join('');
-                    return;
-                }
-            } catch (e) { continue; }
+        try {
+            const response = await fetch(WORKER_URL);
+            const data = await response.json();
+
+            if (data && data.waitTime) {
+                statusEl.style.display = 'none';
+                listEl.innerHTML = data.waitTime.map(h => `
+                    <tr>
+                        <td>
+                            <span class="hosp-name">${h.hospName}</span>
+                            <span class="status-small">數據更新: ${data.updateTime}</span>
+                        </td>
+                        <td><span class="tag tag-pub">公立</span></td>
+                        <td><span class="wait-time">${h.topWait}</span></td>
+                    </tr>
+                `).join('');
+            }
+        } catch (error) {
+            statusEl.innerText = "❌ Worker 連線失敗，請檢查 Cloudflare 狀態。";
+            console.error(error);
         }
-        document.getElementById('pub-status').innerText = "❌ 公立醫院 API 暫時連線失敗，請稍後重整";
     }
 
     window.onload = () => {
-        fetchUnion();
         fetchPublic();
+        // 如果想仁安都行得通，Worker 嗰邊代碼要再改少少，我哋宜家先確保公立醫院行得通！
     };
 </script>
 </body>
