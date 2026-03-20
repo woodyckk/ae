@@ -3,65 +3,73 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>醫院輪候實時 Dashboard</title>
+    <title>全港醫院輪候實時 Dashboard</title>
     <style>
-        body { font-family: -apple-system, sans-serif; background: #f0f2f5; padding: 20px; }
-        .card { max-width: 600px; margin: auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-        h1 { color: #003087; text-align: center; font-size: 22px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; }
-        .hosp { font-weight: bold; }
-        .time { color: #d9480f; font-weight: 800; font-size: 18px; }
-        .update-time { font-size: 12px; color: #999; text-align: center; margin-top: 10px; }
-        #loading { text-align: center; padding: 20px; color: #666; }
+        body { font-family: -apple-system, sans-serif; background: #f4f7f6; padding: 20px; }
+        .container { max-width: 600px; margin: auto; background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+        h1 { text-align: center; color: #003087; font-size: 22px; margin-bottom: 25px; }
+        .status-bar { background: #e3f2fd; padding: 10px; border-radius: 8px; text-align: center; font-size: 13px; color: #0d47a1; margin-bottom: 20px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 15px 10px; text-align: left; border-bottom: 1px solid #eee; }
+        .hosp-name { font-weight: bold; color: #333; }
+        .wait-time { font-size: 18px; font-weight: 800; color: #d9480f; }
+        .footer { text-align: center; font-size: 11px; color: #999; margin-top: 20px; }
     </style>
 </head>
 <body>
 
-<div class="card">
-    <h1>🏥 醫院輪候實時 (Worker 版)</h1>
-    <div id="loading">正在連線專屬 Worker...</div>
-    <table id="data-table" style="display:none;">
+<div class="container">
+    <h1>🏥 全港醫院輪候實時</h1>
+    <div id="status" class="status-bar">🔄 正在連線專屬 Worker...</div>
+    
+    <table id="result-table" style="display:none;">
         <thead>
             <tr>
-                <th>醫院名稱</th>
-                <th>預計等候時間</th>
+                <th>醫院</th>
+                <th>等候時間</th>
             </tr>
         </thead>
-        <tbody id="list"></tbody>
+        <tbody id="list-body"></tbody>
     </table>
-    <div id="update" class="update-time"></div>
+    
+    <div id="update-info" class="footer"></div>
 </div>
 
 <script>
-    // ⚠️ 呢度請換成你返你個正確嘅 Worker 網址
+    // ⚠️ 請確保呢個係你正確嘅 Worker 網址
     const WORKER_URL = "https://twilight-hall-1841.woodyckk.workers.dev/";
 
-    async function loadData() {
+    async function fetchData() {
+        const statusEl = document.getElementById('status');
+        const tableEl = document.getElementById('result-table');
+        const listBody = document.getElementById('list-body');
+        const updateEl = document.getElementById('update-info');
+
         try {
-            const res = await fetch(WORKER_URL);
-            const data = await res.json();
-            
+            const response = await fetch(WORKER_URL);
+            const data = await response.json();
+
             if (data.waitTime) {
-                document.getElementById('loading').style.display = 'none';
-                document.getElementById('data-table').style.display = 'table';
+                statusEl.style.display = 'none';
+                tableEl.style.display = 'table';
                 
-                const list = document.getElementById('list');
-                list.innerHTML = data.waitTime.map(h => `
+                listBody.innerHTML = data.waitTime.map(h => `
                     <tr>
-                        <td class="hosp">${h.hospName}</td>
-                        <td class="time">${h.topWait}</td>
+                        <td class="hosp-name">${h.hospName}</td>
+                        <td class="wait-time">${h.topWait}</td>
                     </tr>
                 `).join('');
                 
-                document.getElementById('update').innerText = "最後更新: " + data.updateTime;
+                updateEl.innerText = "數據最後更新時間: " + data.updateTime;
             }
-        } catch (e) {
-            document.getElementById('loading').innerText = "❌ 連線失敗，請確保 Worker 已 Deploy";
+        } catch (error) {
+            statusEl.style.backgroundColor = "#ffebee";
+            statusEl.style.color = "#c62828";
+            statusEl.innerText = "❌ 無法讀取數據，請檢查 Worker 狀態。";
         }
     }
 
-    window.onload = loadData;
+    window.onload = fetchData;
 </script>
 </body>
 </html>
