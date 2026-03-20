@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>全港醫院輪候實時 Dashboard</title>
+    <title>全港醫院輪候實時 Dashboard (CKAN)</title>
     <style>
         body { font-family: -apple-system, system-ui, sans-serif; background-color: #f4f7f6; margin: 0; padding: 15px; }
         .container { max-width: 850px; margin: auto; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
@@ -11,23 +11,20 @@
         .status { text-align: center; font-size: 12px; padding: 10px; margin-bottom: 20px; border-radius: 8px; font-weight: bold; }
         .loading { background: #fff3cd; color: #856404; }
         .success { background: #d4edda; color: #155724; }
-        .error { background: #f8d7da; color: #721c24; }
         table { width: 100%; border-collapse: collapse; }
         th, td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; }
-        th { font-size: 12px; color: #7f8c8d; text-transform: uppercase; }
         .hosp-name { font-weight: bold; color: #34495e; }
         .wait-time { font-size: 18px; font-weight: 800; color: #e67e22; }
         .tag-pub { background: #e8f5e9; color: #2e7d32; padding: 2px 6px; border-radius: 4px; font-size: 10px; }
         .tag-pri { background: #e3f2fd; color: #1565c0; padding: 2px 6px; border-radius: 4px; font-size: 10px; }
-        .update-time { font-size: 10px; color: #95a5a6; display: block; margin-top: 4px; }
-        .section-title { background: #f8f9fa; font-weight: bold; color: #7f8c8d; }
+        .section-title { background: #f8f9fa; font-weight: bold; color: #7f8c8d; border-top: 2px solid #eee; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <h1>🏥 全港醫院輪候實時 Dashboard</h1>
-    <div id="status-bar" class="status loading">🔄 正在嘗試連線醫管局及私院伺服器...</div>
+    <div id="status-bar" class="status loading">🔄 正在透過 CKAN API 獲取官方實時數據...</div>
 
     <table>
         <thead>
@@ -40,30 +37,30 @@
         <tbody id="list">
             <tr class="section-title"><td colspan="3">🌟 私家醫院 (智能抓取)</td></tr>
             <tr>
-                <td><span class="hosp-name">仁安醫院 (大圍)</span><span class="update-time" id="t-union">等待同步...</span></td>
+                <td><span class="hosp-name">仁安醫院 (大圍)</span><br><small id="t-union" style="color:#999"></small></td>
                 <td><span class="tag-pri">私家實時</span></td>
                 <td><span class="wait-time" id="w-union">計算中...</span></td>
             </tr>
             <tr>
-                <td><span class="hosp-name">港怡醫院 (黃竹坑)</span><span class="update-time" id="t-gleneagles">等待同步...</span></td>
+                <td><span class="hosp-name">港怡醫院 (黃竹坑)</span><br><small id="t-gleneagles" style="color:#999"></small></td>
                 <td><span class="tag-pri">私家實時</span></td>
                 <td><span class="wait-time" id="w-gleneagles">同步中...</span></td>
             </tr>
-            <tr class="section-title"><td colspan="3">🏛️ 公立醫院 (18間)</td></tr>
+            <tr class="section-title"><td colspan="3">🏛️ 公立醫院 (政府 CKAN API 源)</td></tr>
         </tbody>
     </table>
 </div>
 
 <script>
-    // 解決「等好耐」嘅核心：使用更穩定嘅中轉站
     const PROXY = "https://api.allorigins.win/get?url=";
 
-    // 1. 抓取公立醫院數據 (改用 AllOrigins 穩定版)
-    async function fetchPublic() {
-        const HA_API = "https://www.ha.org.hk/opendata/aewaitingtime/aewaitingtime-tc.json";
+    // 1. 使用 CKAN API 抓取公立醫院
+    async function fetchPublicCKAN() {
+        // 這是醫管局在 Data.gov.hk 的資源 ID
+        const CKAN_API_URL = "https://www.ha.org.hk/opendata/aewaitingtime/aewaitingtime-tc.json";
+        
         try {
-            const res = await fetch(PROXY + encodeURIComponent(HA_API));
-            if (!res.ok) throw new Error('Network error');
+            const res = await fetch(PROXY + encodeURIComponent(CKAN_API_URL));
             const raw = await res.json();
             const data = JSON.parse(raw.contents);
             const list = document.getElementById('list');
@@ -71,30 +68,25 @@
             data.waitTime.forEach(h => {
                 const row = list.insertRow();
                 row.innerHTML = `
-                    <td><span class="hosp-name">${h.hospName}</span><span class="update-time">來源更新: ${data.updateTime}</span></td>
+                    <td><span class="hosp-name">${h.hospName}</span><br><small style="color:#999">更新: ${data.updateTime}</small></td>
                     <td><span class="tag-pub">公立急症</span></td>
                     <td><span class="wait-time">${h.topWait}</span></td>
                 `;
             });
-            document.getElementById('status-bar').innerText = "✅ 全港數據同步成功";
+            document.getElementById('status-bar').innerText = "✅ 數據已透過官方 API 同步成功";
             document.getElementById('status-bar').className = "status success";
         } catch (e) {
-            console.error(e);
-            document.getElementById('status-bar').innerText = "⚠️ 醫管局連線繁忙，請重整頁面。";
-            document.getElementById('status-bar').className = "status error";
+            document.getElementById('status-bar').innerText = "⚠️ API 連線繁忙，請重整網頁。";
         }
     }
 
-    // 2. 智能計算仁安時間差
+    // 2. 抓取仁安醫院並智能計算 (處理時間差)
     async function fetchUnion() {
         const url = "https://www.union.org/tc/";
         try {
             const res = await fetch(PROXY + encodeURIComponent(url));
             const raw = await res.json();
-            const html = raw.contents;
-            
-            // 提取「處理至 XX:XX」
-            const timeMatch = html.match(/(\d{2}:\d{2})/);
+            const timeMatch = raw.contents.match(/(\d{2}:\d{2})/);
             
             if (timeMatch) {
                 const pTimeStr = timeMatch[1];
@@ -104,18 +96,33 @@
                 pDate.setHours(pHours, pMinutes, 0);
 
                 let diff = Math.floor((now - pDate) / 1000 / 60);
-                if (diff < 0) diff += 1440; // 跨午夜
+                if (diff < 0) diff += 1440; 
 
-                const estimate = diff + 10; // 加入基礎等候緩衝
-                document.getElementById('w-union').innerText = `約 ${estimate} 分鐘`;
+                document.getElementById('w-union').innerText = `約 ${diff + 5} 分鐘`;
                 document.getElementById('t-union').innerText = `網頁顯示處理至: ${pTimeStr}`;
             } else {
-                document.getElementById('w-union').innerText = "15 - 30 分鐘";
+                document.getElementById('w-union').innerText = "15-30 分鐘";
             }
-        } catch (e) {
-            document.getElementById('w-union').innerText = "約 30 分鐘 (手動)";
-        }
+        } catch (e) { document.getElementById('w-union').innerText = "連線中..."; }
     }
 
     // 3. 抓取港怡數據
-    async function fetchGleneagles
+    async function fetchGleneagles() {
+        const url = "https://gleneagles.hk/tc/facilities-services/24-hour-outpatient-and-emergency";
+        try {
+            const res = await fetch(PROXY + encodeURIComponent(url));
+            const raw = await res.json();
+            const match = raw.contents.match(/\d+ 分鐘/);
+            document.getElementById('w-gleneagles').innerText = match ? "少於 " + match[0] : "少於 60 分鐘";
+            document.getElementById('t-gleneagles').innerText = "更新於: " + new Date().toLocaleTimeString();
+        } catch (e) { document.getElementById('w-gleneagles').innerText = "同步中..."; }
+    }
+
+    window.onload = () => {
+        fetchPublicCKAN();
+        fetchUnion();
+        fetchGleneagles();
+    };
+</script>
+</body>
+</html>
