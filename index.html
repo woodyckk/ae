@@ -1,1 +1,61 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>醫院實時輪候時間</title>
+    <style>
+        body { font-family: -apple-system, sans-serif; background: #f4f7f9; padding: 20px; display: flex; justify-content: center; }
+        .container { width: 100%; max-width: 450px; background: white; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); overflow: hidden; }
+        .header { background: #003087; color: white; padding: 25px; text-align: center; }
+        .header h1 { margin: 0; font-size: 22px; }
+        .update-time { font-size: 13px; opacity: 0.8; margin-top: 8px; }
+        .list-item { display: flex; justify-content: space-between; align-items: center; padding: 18px 20px; border-bottom: 1px solid #eee; }
+        .hosp-name { font-weight: 500; color: #333; }
+        .wait-time { background: #fff0f0; color: #e63946; padding: 6px 12px; border-radius: 8px; font-weight: bold; font-size: 14px; }
+        #status { padding: 40px; text-align: center; color: #666; }
+    </style>
+</head>
+<body>
 
+<div class="container">
+    <div class="header">
+        <h1>🏥 醫院實時輪候</h1>
+        <div id="update-time">最後更新: 載入中...</div>
+    </div>
+    <div id="status">📡 正在連接醫管局...</div>
+    <div id="hospital-list"></div>
+</div>
+
+<script>
+    // ⚠️ 請換成你啱啱整好嗰個 Worker 網址
+    const API_URL = "https://hk-hospital-live.你的用戶名.workers.dev/";
+
+    async function getData() {
+        try {
+            const res = await fetch(API_URL);
+            const data = await res.json();
+            
+            if(data.waitTime && data.waitTime.length > 0) {
+                document.getElementById('status').style.display = 'none';
+                document.getElementById('update-time').innerText = "最後更新: " + data.updateTime;
+                
+                const list = document.getElementById('hospital-list');
+                list.innerHTML = data.waitTime.map(h => `
+                    <div class="list-item">
+                        <span class="hosp-name">${h.hospName}</span>
+                        <span class="wait-time">${h.topWait}</span>
+                    </div>
+                `).join('');
+            } else {
+                document.getElementById('status').innerText = "⚠️ 暫時無數據，請檢查 Worker 設定。";
+            }
+        } catch (e) {
+            document.getElementById('status').innerText = "❌ 連線失敗，請確保已關閉 VPN。";
+        }
+    }
+
+    getData();
+</script>
+</body>
+</html>
