@@ -3,60 +3,55 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>全港醫院實時輪候時間</title>
+    <title>香港急症室實時輪候</title>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f0f2f5; margin: 0; padding: 20px; color: #333; }
-        .container { max-width: 500px; margin: auto; background: white; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); overflow: hidden; }
+        body { font-family: -apple-system, system-ui, sans-serif; background: #f0f2f5; padding: 20px; }
+        .card { max-width: 500px; margin: auto; background: white; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); overflow: hidden; }
         .header { background: #003087; color: white; padding: 20px; text-align: center; }
-        .header h1 { margin: 0; font-size: 20px; }
-        .update-time { font-size: 12px; opacity: 0.8; margin-top: 5px; }
-        .item { display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; border-bottom: 1px solid #f0f0f0; transition: background 0.2s; }
-        .item:hover { background: #f8f9fa; }
-        .hosp-name { font-weight: 500; font-size: 16px; color: #1a1a1a; }
-        .wait-tag { background: #fff0f0; color: #d9480f; padding: 6px 12px; border-radius: 8px; font-weight: 700; font-size: 14px; }
-        #loading { padding: 40px; text-align: center; color: #666; }
+        .hosp-row { display: flex; justify-content: space-between; padding: 15px 20px; border-bottom: 1px solid #eee; }
+        .time-tag { color: #d9480f; font-weight: bold; background: #fff0f0; padding: 4px 10px; border-radius: 5px; }
+        #update-at { font-size: 12px; opacity: 0.8; margin-top: 5px; }
     </style>
 </head>
 <body>
 
-<div class="container">
+<div class="card">
     <div class="header">
-        <h1>🏥 醫院實時輪候時間</h1>
-        <div id="update" class="update-time">正在獲取數據...</div>
+        <h2>🏥 急症室實時輪候</h2>
+        <div id="update-at">載入中...</div>
     </div>
-    <div id="loading">📡 正在連線數據中心...</div>
-    <div id="list"></div>
+    <div id="list">
+        <div style="padding:40px; text-align:center;">📡 正在連線醫管局數據中心...</div>
+    </div>
 </div>
 
 <script>
-    // ⚠️ 確保呢度係你嘅新 Worker 網址
-    const WORKER_URL = "https://my-hospitals.woodyckk.workers.dev/";
+    // ⚠️ 呢度請換成你喺第二步整好嘅 Worker 網址！
+    const API_URL = "https://hk-ae-api.woodyckk.workers.dev/";
 
-    async function loadData() {
+    async function fetchWaitTimes() {
         try {
-            const res = await fetch(WORKER_URL);
+            const res = await fetch(API_URL);
             const data = await res.json();
             
-            document.getElementById('loading').style.display = 'none';
-            document.getElementById('update').innerText = "最後更新: " + (data.updateTime || "剛剛");
+            document.getElementById('update-at').innerText = "最後更新: " + data.updateTime;
             
-            const list = document.getElementById('list');
-            if (data.waitTime && data.waitTime.length > 0) {
-                list.innerHTML = data.waitTime.map(h => `
-                    <div class="item">
-                        <span class="hosp-name">${h.hospName}</span>
-                        <span class="wait-tag">${h.topWait}</span>
-                    </div>
-                `).join('');
-            } else {
-                list.innerHTML = '<div style="padding:20px; text-align:center;">目前沒有輪候數據</div>';
-            }
+            const listHtml = data.hospitals.map(h => `
+                <div class="hosp-row">
+                    <span>${h.name}</span>
+                    <span class="time-tag">${h.time}</span>
+                </div>
+            `).join('');
+            
+            document.getElementById('list').innerHTML = listHtml;
         } catch (e) {
-            document.getElementById('loading').innerText = "❌ 無法讀取數據，請檢查 Worker。";
+            document.getElementById('list').innerHTML = '<div style="padding:20px; color:red;">讀取失敗，請稍後再試</div>';
         }
     }
 
-    loadData();
+    fetchWaitTimes();
+    // 每 15 分鐘自動刷新一次 (醫管局數據更新頻率)
+    setInterval(fetchWaitTimes, 15 * 60 * 1000);
 </script>
 </body>
 </html>
